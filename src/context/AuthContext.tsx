@@ -12,8 +12,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // For local development, use Express server
-// For production/Vercel, use serverless functions
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+// For production/Vercel, use relative URLs to serverless functions
+const API_BASE_URL = process.env.REACT_APP_API_URL || 
+  (window.location.hostname === 'localhost' ? 'http://localhost:4000' : '');
 
 // Configure axios defaults
 axios.defaults.withCredentials = true;
@@ -30,8 +31,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuthStatus = async () => {
     try {
-      // For local development, use Express server endpoints
-      const response = await axios.get(`${API_BASE_URL}/auth/status`);
+      // Use /api/ prefix for Vercel, direct endpoints for local development
+      const endpoint = window.location.hostname === 'localhost' ? '/auth/status' : '/api/auth/status';
+      const response = await axios.get(`${API_BASE_URL}${endpoint}`);
       setIsAuthenticated(response.data.authenticated);
     } catch (error) {
       console.error('Auth status check failed:', error);
@@ -46,8 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       setIsLoading(true);
       
-      // For local development, use Express server endpoints
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, { password });
+      // Use /api/ prefix for Vercel, direct endpoints for local development
+      const endpoint = window.location.hostname === 'localhost' ? '/auth/login' : '/api/auth/login';
+      const response = await axios.post(`${API_BASE_URL}${endpoint}`, { password });
       
       if (response.data.success) {
         setIsAuthenticated(true);
@@ -66,8 +69,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      // For local development, use Express server endpoints
-      await axios.post(`${API_BASE_URL}/auth/logout`);
+      // Use /api/ prefix for Vercel, direct endpoints for local development
+      const endpoint = window.location.hostname === 'localhost' ? '/auth/logout' : '/api/auth/logout';
+      await axios.post(`${API_BASE_URL}${endpoint}`);
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
