@@ -1,0 +1,41 @@
+{
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "build": {
+    "env": {
+      "REACT_APP_API_URL": ""
+    }
+  },
+  "env": {
+    "APP_PASSWORD": "@app_password",
+    "CLAUDE_API_KEY": "@claude_api_key",
+    "CLAUDE_API_KEY_ENCRYPTED": "@claude_api_key_encrypted",
+    "FRONTEND_URL": "@frontend_url"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+        }
+      ]
+    }
+  ]
+} 
