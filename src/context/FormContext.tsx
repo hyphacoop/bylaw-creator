@@ -18,6 +18,7 @@ interface FormData {
   decisionMakingMethod: string;
   specialResolutionThreshold: string;
   claudeModel: string;
+  webSearchEnabled: boolean;
   [key: string]: any;
 }
 
@@ -51,7 +52,8 @@ const defaultFormData: FormData = {
   boardTermYears: 2,
   decisionMakingMethod: 'majority',
   specialResolutionThreshold: '2/3',
-  claudeModel: 'claude-sonnet-4-20250514', // Default to latest Claude Sonnet 4
+  claudeModel: 'claude-3-5-haiku-20241022', // Default to fastest model for free tier
+  webSearchEnabled: false, // Default to false for free tier to avoid timeouts
 };
 
 // Create the context
@@ -215,7 +217,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
       const payload: any = {
-        model: formData.claudeModel || 'claude-sonnet-4-20250514',
+        model: formData.claudeModel || 'claude-3-5-haiku-20241022',
         messages: [
           {
             role: "user",
@@ -225,7 +227,8 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
         max_tokens: 5000
       };
       
-      if (allowedDomain) {
+      // Only add web search tools if enabled by user (may cause timeout on free tier)
+      if (formData.webSearchEnabled && allowedDomain) {
         payload.tools = [{
           type: 'web_search_20250305',
           name: 'web_search',
@@ -236,11 +239,13 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       
       // Call the Claude API via the proxy
-      // For local development, use Express server endpoint
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+      // For local development, use Express server endpoint; for Vercel, use serverless functions
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 
+        (window.location.hostname === 'localhost' ? 'http://localhost:4000' : '');
       
-      console.log('Sending request to proxy at /anthropic/messages');
-      const response = await axios.post(`${API_BASE_URL}/anthropic/messages`, payload);
+      const endpoint = window.location.hostname === 'localhost' ? '/anthropic/messages' : '/api/anthropic/messages';
+      console.log(`Sending request to proxy at ${endpoint}`);
+      const response = await axios.post(`${API_BASE_URL}${endpoint}`, payload);
       
       console.log('Proxy response received:', response.status);
       
@@ -261,11 +266,24 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Move to results step
       setCurrentStep(6);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating bylaws via proxy:', error);
-      setErrorMessage(
-        'There was an error generating your bylaws. Please try again or check your proxy and API configuration.'
-      );
+      
+      let errorMessage = 'There was an error generating your bylaws. Please try again.';
+      
+      if (error.code === 'ERR_BAD_RESPONSE' && error.status === 504) {
+        errorMessage = formData.webSearchEnabled 
+          ? 'The request timed out due to web research taking too long on the 60-second free tier limit. Try disabling "Enable Web Research" for faster generation.'
+          : 'The request timed out due to the 60-second free tier limit. Please try again or consider using a faster model.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please refresh the page and log in again.';
+      } else if (error.response?.status >= 400 && error.response?.status < 500) {
+        errorMessage = `Client error (${error.response.status}): ${error.response?.data?.error || 'Please check your input and try again.'}`;
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Server error. The service may be temporarily unavailable. Please try again in a moment.';
+      }
+      
+      setErrorMessage(errorMessage);
     } finally {
       setIsGenerating(false);
     }
