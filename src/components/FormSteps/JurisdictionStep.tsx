@@ -21,7 +21,7 @@ const JurisdictionStep: React.FC = () => {
   };
   
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-6 bg-white rounded-lg">
       <h2 className="text-xl font-bold mb-4">Jurisdiction</h2>
       
       <div className="mb-6">
