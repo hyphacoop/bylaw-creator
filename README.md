@@ -215,6 +215,12 @@ You will also see any lint errors in the console.
 Launches the test runner in the interactive watch mode.\
 See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
+### `npm run test-models`
+Tests available Claude models to verify API connectivity.
+
+### `npm run test-ollama` 
+Tests both Claude and Ollama models to check which are working.
+
 ### `npm run build`
 
 Builds the app for production to the `build` folder.\
