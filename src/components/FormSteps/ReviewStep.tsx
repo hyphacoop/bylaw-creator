@@ -32,6 +32,20 @@ const ReviewStep: React.FC = () => {
     }
   };
 
+  const getBoardSizeDisplay = () => {
+    if (!formData.boardSize) return 'Not specified';
+    
+    const trimmed = formData.boardSize.trim();
+    
+    // Check if it's an interval (e.g., "5-7")
+    if (trimmed.includes('-')) {
+      return `${trimmed} directors`;
+    }
+    
+    // Single number
+    return `${trimmed} directors`;
+  };
+
   const aiModels = [
     // Claude Models
     { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4 (Latest)', provider: 'claude' },
@@ -106,7 +120,7 @@ const ReviewStep: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <p className="text-sm text-gray-500">Board Size:</p>
-            <p className="font-medium">{formData.boardSize} directors</p>
+            <p className="font-medium">{getBoardSizeDisplay()}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Term Length:</p>

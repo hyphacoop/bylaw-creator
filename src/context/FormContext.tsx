@@ -14,7 +14,7 @@ interface FormData {
   membershipEligibility: string;
   membershipApprovalProcess: string;
   votingMethod: string;
-  boardSize: number;
+  boardSize: string;
   boardTermYears: number;
   decisionMakingMethod: string;
   specialResolutionThreshold: string;
@@ -53,7 +53,7 @@ const defaultFormData: FormData = {
   membershipEligibility: '',
   membershipApprovalProcess: 'board',
   votingMethod: 'one-member-one-vote',
-  boardSize: 5,
+  boardSize: '5',
   boardTermYears: 2,
   decisionMakingMethod: 'majority',
   specialResolutionThreshold: '2/3',
@@ -81,6 +81,29 @@ const coopLegislationLinks = {
   quebec: "https://www.legisquebec.gouv.qc.ca/en/document/cs/c-67.2",
   saskatchewan: "https://publications.saskatchewan.ca/",
 }
+
+// Helper function to validate board size (supports both single numbers and intervals)
+const validateBoardSize = (boardSize: string): boolean => {
+  if (!boardSize || !boardSize.trim()) return false;
+  
+  const trimmed = boardSize.trim();
+  
+  // Check if it's a single number
+  const singleNumber = parseInt(trimmed);
+  if (!isNaN(singleNumber) && singleNumber >= 3 && singleNumber <= 15) {
+    return true;
+  }
+  
+  // Check if it's an interval (e.g., "5-7")
+  const intervalMatch = trimmed.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (intervalMatch) {
+    const min = parseInt(intervalMatch[1]);
+    const max = parseInt(intervalMatch[2]);
+    return min >= 3 && max <= 15 && min <= max;
+  }
+  
+  return false;
+};
 
 // Create the provider component
 export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -135,7 +158,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 3: // Membership
         return Boolean(formData.membershipEligibility && formData.membershipEligibility.trim());
       case 4: // Governance
-        return Boolean(formData.boardSize >= 3 && formData.boardTermYears >= 1);
+        return validateBoardSize(formData.boardSize) && formData.boardTermYears >= 1;
       case 5: // Review
         return true;
       default:
