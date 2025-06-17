@@ -28,7 +28,6 @@ const FormContainer: React.FC = () => {
               <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-800">
                   <strong>Note:</strong> This process may take 2-5 minutes depending on complexity. 
-                  You can safely close this window - your job will continue processing.
                 </p>
               </div>
             </div>
