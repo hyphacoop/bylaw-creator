@@ -33,6 +33,19 @@ async function main() {
       rl.close();
       return;
     }
+    
+    // Get Ollama configuration (optional)
+    const useOllama = await askQuestion('Do you want to configure Ollama API? (y/N): ');
+    let ollamaUsername = '';
+    let ollamaToken = '';
+    
+    if (useOllama.toLowerCase() === 'y' || useOllama.toLowerCase() === 'yes') {
+      const ollamaUrl = await askQuestion('Enter Ollama API URL (or press Enter for default): ');
+      ollamaUsername = await askQuestion('Enter Ollama username (e.g., "roo"): ');
+      ollamaToken = await askQuestion('Enter Ollama token: ');
+      
+      process.env.OLLAMA_URL = ollamaUrl.trim() || 'https://roo.ai.hypha.coop/api/generate';
+    }
 
     // Get security preferences
     const useEncryption = await askQuestion('Encrypt API key for extra security? (Y/n): ');
@@ -60,24 +73,50 @@ async function main() {
     console.log('4. Set environment variables in Vercel:');
 
     if (shouldEncrypt) {
-             // Encrypt the API key
-       const key = crypto.scryptSync(password, 'salt', 32);
-       const iv = crypto.randomBytes(16);
-       const cipher = crypto.createCipherGCM('aes-256-gcm', key, iv);
-       let encrypted = cipher.update(apiKey, 'utf8', 'hex');
-       encrypted += cipher.final('hex');
-       const authTag = cipher.getAuthTag();
-       encrypted = iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
+      // Encrypt the API key
+      const key = crypto.scryptSync(password, 'salt', 32);
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipherGCM('aes-256-gcm', key, iv);
+      let encrypted = cipher.update(apiKey, 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+      const authTag = cipher.getAuthTag();
+      encrypted = iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
 
       console.log('   vercel env add APP_PASSWORD');
       console.log(`   (Enter: ${password})`);
       console.log('   vercel env add CLAUDE_API_KEY_ENCRYPTED');
       console.log(`   (Enter: ${encrypted})`);
+      
+      if (ollamaToken) {
+        const ollamaKey = crypto.scryptSync(password, 'salt', 32);
+        const ollamaIv = crypto.randomBytes(16);
+        const ollamaCipher = crypto.createCipherGCM('aes-256-gcm', ollamaKey, ollamaIv);
+        let ollamaEncrypted = ollamaCipher.update(ollamaToken, 'utf8', 'hex');
+        ollamaEncrypted += ollamaCipher.final('hex');
+        const ollamaAuthTag = ollamaCipher.getAuthTag();
+        ollamaEncrypted = ollamaIv.toString('hex') + ':' + ollamaAuthTag.toString('hex') + ':' + ollamaEncrypted;
+
+        console.log('   vercel env add OLLAMA_URL');
+        console.log(`   (Enter: ${process.env.OLLAMA_URL})`);
+        console.log('   vercel env add OLLAMA_USERNAME');
+        console.log(`   (Enter: ${ollamaUsername})`);
+        console.log('   vercel env add OLLAMA_PASSWORD_ENCRYPTED');
+        console.log(`   (Enter: ${ollamaEncrypted})`);
+      }
     } else {
       console.log('   vercel env add APP_PASSWORD');
       console.log(`   (Enter: ${password})`);
       console.log('   vercel env add CLAUDE_API_KEY');
       console.log(`   (Enter: ${apiKey})`);
+      
+      if (ollamaToken) {
+        console.log('   vercel env add OLLAMA_URL');
+        console.log(`   (Enter: ${process.env.OLLAMA_URL})`);
+        console.log('   vercel env add OLLAMA_USERNAME');
+        console.log(`   (Enter: ${ollamaUsername})`);
+        console.log('   vercel env add OLLAMA_PASSWORD');
+        console.log(`   (Enter: ${ollamaToken})`);
+      }
     }
 
     console.log('   vercel env add FRONTEND_URL');
@@ -103,22 +142,46 @@ async function main() {
       let envContent = '';
       
       if (shouldEncrypt) {
-                 const key = crypto.scryptSync(password, 'salt', 32);
-         const iv = crypto.randomBytes(16);
-         const cipher = crypto.createCipherGCM('aes-256-gcm', key, iv);
-         let encrypted = cipher.update(apiKey, 'utf8', 'hex');
-         encrypted += cipher.final('hex');
-         const authTag = cipher.getAuthTag();
-         encrypted = iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
+        const key = crypto.scryptSync(password, 'salt', 32);
+        const iv = crypto.randomBytes(16);
+        const cipher = crypto.createCipherGCM('aes-256-gcm', key, iv);
+        let encrypted = cipher.update(apiKey, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+        const authTag = cipher.getAuthTag();
+        encrypted = iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
+
+        let ollamaConfig = '';
+        if (ollamaToken) {
+          const ollamaKey = crypto.scryptSync(password, 'salt', 32);
+          const ollamaIv = crypto.randomBytes(16);
+          const ollamaCipher = crypto.createCipherGCM('aes-256-gcm', ollamaKey, ollamaIv);
+          let ollamaEncrypted = ollamaCipher.update(ollamaToken, 'utf8', 'hex');
+          ollamaEncrypted += ollamaCipher.final('hex');
+          const ollamaAuthTag = ollamaCipher.getAuthTag();
+          ollamaEncrypted = ollamaIv.toString('hex') + ':' + ollamaAuthTag.toString('hex') + ':' + ollamaEncrypted;
+          
+          ollamaConfig = `OLLAMA_URL=${process.env.OLLAMA_URL}
+OLLAMA_USERNAME=${ollamaUsername}
+OLLAMA_PASSWORD_ENCRYPTED=${ollamaEncrypted}
+`;
+        }
 
         envContent = `# Development Environment (Vercel + Express hybrid)
 CLAUDE_API_KEY_ENCRYPTED=${encrypted}
-APP_PASSWORD=${password}
+${ollamaConfig}APP_PASSWORD=${password}
 `;
       } else {
+        let ollamaConfig = '';
+        if (ollamaToken) {
+          ollamaConfig = `OLLAMA_URL=${process.env.OLLAMA_URL}
+OLLAMA_USERNAME=${ollamaUsername}
+OLLAMA_PASSWORD=${ollamaToken}
+`;
+        }
+
         envContent = `# Development Environment (Vercel + Express hybrid)
 CLAUDE_API_KEY=${apiKey}
-APP_PASSWORD=${password}
+${ollamaConfig}APP_PASSWORD=${password}
 `;
       }
 

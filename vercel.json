@@ -1,7 +1,10 @@
 {
   "functions": {
-    "api/**/*.js": {
-      "runtime": "@vercel/node"
+    "api/anthropic/messages.js": {
+      "maxDuration": 60
+    },
+    "api/ollama/generate.js": {
+      "maxDuration": 60
     }
   },
   "build": {
@@ -9,12 +12,7 @@
       "REACT_APP_API_URL": ""
     }
   },
-  "env": {
-    "APP_PASSWORD": "@app_password",
-    "CLAUDE_API_KEY": "@claude_api_key",
-    "CLAUDE_API_KEY_ENCRYPTED": "@claude_api_key_encrypted",
-    "FRONTEND_URL": "@frontend_url"
-  },
+
   "headers": [
     {
       "source": "/api/(.*)",

@@ -49,6 +49,19 @@ async function main() {
       rl.close();
       return;
     }
+    
+    // Get Ollama configuration (optional)
+    const useOllama = await askQuestion('Do you want to configure Ollama API? (y/N): ');
+    let ollamaUsername = '';
+    let ollamaToken = '';
+    
+    if (useOllama.toLowerCase() === 'y' || useOllama.toLowerCase() === 'yes') {
+      const ollamaUrl = await askQuestion('Enter Ollama API URL (or press Enter for default): ');
+      ollamaUsername = await askQuestion('Enter Ollama username (e.g., "roo"): ');
+      ollamaToken = await askQuestion('Enter Ollama token: ');
+      
+      process.env.OLLAMA_URL = ollamaUrl.trim() || 'https://roo.ai.hypha.coop/api/generate';
+    }
 
     // Get security preferences
     const useEncryption = await askQuestion('Encrypt API key? (Y/n): ');
@@ -73,9 +86,25 @@ async function main() {
       const authTag = cipher.getAuthTag();
       encrypted = iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
 
+      let ollamaConfig = ''
+      if (ollamaToken) {
+        const ollamaKey = crypto.scryptSync(password, 'salt', 32)
+        const ollamaIv = crypto.randomBytes(16)
+        const ollamaCipher = crypto.createCipherGCM('aes-256-gcm', ollamaKey, ollamaIv)
+        let ollamaEncrypted = ollamaCipher.update(ollamaToken, 'utf8', 'hex')
+        ollamaEncrypted += ollamaCipher.final('hex')
+        const ollamaAuthTag = ollamaCipher.getAuthTag()
+        ollamaEncrypted = ollamaIv.toString('hex') + ':' + ollamaAuthTag.toString('hex') + ':' + ollamaEncrypted
+        
+        ollamaConfig = `OLLAMA_URL=${process.env.OLLAMA_URL}
+OLLAMA_USERNAME=${ollamaUsername}
+OLLAMA_PASSWORD_ENCRYPTED=${ollamaEncrypted}
+`
+      }
+
       envContent = `# Encrypted Configuration
 CLAUDE_API_KEY_ENCRYPTED=${encrypted}
-APP_PASSWORD=${password}
+${ollamaConfig}APP_PASSWORD=${password}
 `;
     } else {
       const appPassword = await askQuestion('Enter app access password: ');
@@ -85,9 +114,17 @@ APP_PASSWORD=${password}
         return;
       }
 
+      let ollamaConfig = ''
+      if (ollamaToken) {
+        ollamaConfig = `OLLAMA_URL=${process.env.OLLAMA_URL}
+OLLAMA_USERNAME=${ollamaUsername}
+OLLAMA_PASSWORD=${ollamaToken}
+`
+      }
+
       envContent = `# Basic Configuration
 CLAUDE_API_KEY=${apiKey}
-APP_PASSWORD=${appPassword}
+${ollamaConfig}APP_PASSWORD=${appPassword}
 `;
     }
 
