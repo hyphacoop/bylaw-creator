@@ -10,7 +10,7 @@
       "maxDuration": 10
     },
     "api/jobs/process.js": {
-      "maxDuration": 300
+      "maxDuration": 60
     },
     "api/jobs/status.js": {
       "maxDuration": 10

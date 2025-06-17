@@ -105,6 +105,9 @@ function requireAuth(req) {
 }
 
 async function processJobData(jobId, jobData, userPassword) {
+  const startTime = Date.now()
+  const maxProcessingTime = 55000 // 55 seconds to leave buffer before Vercel timeout
+  
   try {
     console.log('Processing job:', jobId, 'with data:', Object.keys(jobData))
 
@@ -116,97 +119,40 @@ async function processJobData(jobId, jobData, userPassword) {
 
     const { formData, payload, isOllamaModel } = jobData
 
-    if (isOllamaModel) {
-      console.log('Processing Ollama model:', payload.model)
+    // Start the actual processing
+    const processingPromise = performActualProcessing(jobId, formData, payload, isOllamaModel, userPassword)
+    
+    // Race between processing and timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('TIMEOUT_APPROACHING')), maxProcessingTime)
+    })
+
+    try {
+      await Promise.race([processingPromise, timeoutPromise])
       
-      // Handle Ollama models
-      const credentials = getOllamaCredentials(userPassword)
-      if (!credentials || !credentials.username || !credentials.token) {
-        throw new Error('Ollama credentials not available')
-      }
-
-      const authHeader = Buffer.from(`${credentials.username}:${credentials.token}`).toString('base64')
-      const ollamaUrl = process.env.OLLAMA_URL || 'https://roo.ai.hypha.coop/api/generate'
-
-      console.log('Calling Ollama API:', ollamaUrl)
-
-      const ollamaResponse = await fetch(ollamaUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${authHeader}`
-        },
-        body: JSON.stringify({
-          model: payload.model,
-          prompt: payload.messages[0].content,
-          stream: false,
-          options: {
-            num_predict: payload.max_tokens || 5000
-          }
+      // If we get here, processing completed successfully
+      console.log('Job completed successfully:', jobId)
+      return { success: true }
+      
+    } catch (error) {
+      if (error.message === 'TIMEOUT_APPROACHING') {
+        console.log('Function timeout approaching, will need continuation for job:', jobId)
+        
+        // Mark as still processing and trigger continuation
+        await redis.hset(`job:${jobId}`, {
+          status: 'processing',
+          updatedAt: Date.now(),
+          needsContinuation: 'true'
         })
-      })
-
-      if (!ollamaResponse.ok) {
-        const errorText = await ollamaResponse.text()
-        throw new Error(`Ollama API error: ${ollamaResponse.status} ${ollamaResponse.statusText} - ${errorText}`)
+        
+        // Trigger another processing call (don't wait for response)
+        triggerContinuation(jobId).catch(console.error)
+        
+        return { success: true, continued: true }
+      } else {
+        throw error // Re-throw actual errors
       }
-
-      const ollamaData = await ollamaResponse.json()
-      const generatedBylaws = ollamaData.response
-
-      console.log('Ollama response received, length:', generatedBylaws?.length || 0)
-
-      await redis.hset(`job:${jobId}`, {
-        status: 'completed',
-        result: generatedBylaws,
-        completedAt: Date.now()
-      })
-
-    } else {
-      console.log('Processing Claude model:', payload.model)
-      
-      // Handle Claude API
-      const apiKey = getClaudeApiKey(userPassword)
-      if (!apiKey) {
-        throw new Error('Claude API key not available')
-      }
-
-      console.log('Calling Claude API...')
-
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify(payload)
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(`Claude API error: ${JSON.stringify(data)}`)
-      }
-
-      const textBlocks = data.content?.filter((c) => c.type === 'text') || []
-      const bylaws = textBlocks.map((c) => c.text).join('\n\n')
-
-      console.log('Claude response received, length:', bylaws.length)
-
-      await redis.hset(`job:${jobId}`, {
-        status: 'completed',
-        result: bylaws,
-        completedAt: Date.now()
-      })
     }
-
-    // Set expiration for 24 hours
-    await redis.expire(`job:${jobId}`, 86400)
-
-    console.log('Job completed successfully:', jobId)
-    return { success: true }
 
   } catch (error) {
     console.error('Job processing error:', error)
@@ -219,6 +165,122 @@ async function processJobData(jobId, jobData, userPassword) {
     })
 
     return { success: false, error: error.message }
+  }
+}
+
+async function performActualProcessing(jobId, formData, payload, isOllamaModel, userPassword) {
+  if (isOllamaModel) {
+    console.log('Processing Ollama model:', payload.model)
+    
+    // Handle Ollama models
+    const credentials = getOllamaCredentials(userPassword)
+    if (!credentials || !credentials.username || !credentials.token) {
+      throw new Error('Ollama credentials not available')
+    }
+
+    const authHeader = Buffer.from(`${credentials.username}:${credentials.token}`).toString('base64')
+    const ollamaUrl = process.env.OLLAMA_URL || 'https://roo.ai.hypha.coop/api/generate'
+
+    console.log('Calling Ollama API:', ollamaUrl)
+
+    const ollamaResponse = await fetch(ollamaUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${authHeader}`
+      },
+      body: JSON.stringify({
+        model: payload.model,
+        prompt: payload.messages[0].content,
+        stream: false,
+        options: {
+          num_predict: payload.max_tokens || 5000
+        }
+      })
+    })
+
+    if (!ollamaResponse.ok) {
+      const errorText = await ollamaResponse.text()
+      throw new Error(`Ollama API error: ${ollamaResponse.status} ${ollamaResponse.statusText} - ${errorText}`)
+    }
+
+    const ollamaData = await ollamaResponse.json()
+    const generatedBylaws = ollamaData.response
+
+    console.log('Ollama response received, length:', generatedBylaws?.length || 0)
+
+    await redis.hset(`job:${jobId}`, {
+      status: 'completed',
+      result: generatedBylaws,
+      completedAt: Date.now()
+    })
+
+  } else {
+    console.log('Processing Claude model:', payload.model)
+    
+    // Handle Claude API
+    const apiKey = getClaudeApiKey(userPassword)
+    if (!apiKey) {
+      throw new Error('Claude API key not available')
+    }
+
+    console.log('Calling Claude API...')
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(`Claude API error: ${JSON.stringify(data)}`)
+    }
+
+    const textBlocks = data.content?.filter((c) => c.type === 'text') || []
+    const bylaws = textBlocks.map((c) => c.text).join('\n\n')
+
+    console.log('Claude response received, length:', bylaws.length)
+
+    await redis.hset(`job:${jobId}`, {
+      status: 'completed',
+      result: bylaws,
+      completedAt: Date.now()
+    })
+  }
+
+  // Set expiration for 24 hours
+  await redis.expire(`job:${jobId}`, 86400)
+}
+
+async function triggerContinuation(jobId) {
+  try {
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : process.env.FRONTEND_URL || 'http://localhost:3000'
+    
+    console.log('Triggering continuation processing for job:', jobId)
+    
+    // Trigger another processing call
+    fetch(`${baseUrl}/api/jobs/process`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Request': 'true'
+      },
+      body: JSON.stringify({ jobId })
+    }).catch(error => {
+      console.error('Failed to trigger continuation:', error)
+    })
+    
+  } catch (error) {
+    console.error('Continuation trigger error:', error)
   }
 }
 
