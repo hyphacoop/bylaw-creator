@@ -1,19 +1,16 @@
 {
   "functions": {
     "api/anthropic/messages.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/ollama/generate.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/jobs/submit.js": {
-      "maxDuration": 10
-    },
-    "api/jobs/process.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/jobs/status.js": {
-      "maxDuration": 10
+      "maxDuration": 30
     }
   },
   "build": {
@@ -40,7 +37,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Internal-Request"
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
         }
       ]
     }
