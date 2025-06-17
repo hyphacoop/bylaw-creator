@@ -17,12 +17,16 @@ async function testOllamaModel(modelId, modelName) {
     
     if (!process.env.OLLAMA_USERNAME || !process.env.OLLAMA_PASSWORD) {
       console.log(`⚠️ ${modelName}: Ollama credentials not configured, skipping...`);
-      return false;
+      return { works: false, responseTime: null, accuracy: false };
     }
 
     const authHeader = Buffer.from(`${process.env.OLLAMA_USERNAME}:${process.env.OLLAMA_PASSWORD}`).toString('base64');
     
     const ollamaUrl = process.env.OLLAMA_URL || 'https://roo.ai.hypha.coop/api/generate'
+    
+    // Start timing
+    const startTime = Date.now();
+    
     const response = await fetch(ollamaUrl, {
       method: 'POST',
       headers: {
@@ -39,20 +43,46 @@ async function testOllamaModel(modelId, modelName) {
       })
     });
 
+    const responseTime = Date.now() - startTime;
+
     if (response.ok) {
       const data = await response.json();
       const responseText = data.response || 'No response text';
-      console.log(`✅ ${modelName}: ${responseText.substring(0, 100)}...`);
-      return true;
+      
+      // Check accuracy: does the response contain the model name?
+      const expectedNames = extractModelNames(modelId);
+      const accuracy = checkAccuracy(responseText.toLowerCase(), expectedNames);
+      
+      const accuracyIcon = accuracy ? '🎯' : '❌';
+      console.log(`✅ ${modelName}: ${responseTime}ms ${accuracyIcon} ${responseText.substring(0, 80)}...`);
+      
+      return { works: true, responseTime, accuracy, response: responseText };
     } else {
       const error = await response.text();
       console.log(`❌ ${modelName}: ${response.status} - ${error.substring(0, 150)}...`);
-      return false;
+      return { works: false, responseTime: null, accuracy: false };
     }
   } catch (error) {
     console.log(`❌ ${modelName}: Network error - ${error.message}`);
-    return false;
+    return { works: false, responseTime: null, accuracy: false };
   }
+}
+
+function extractModelNames(modelId) {
+  // Extract expected name variations from model ID
+  const names = [];
+  
+  if (modelId.includes('cogito')) names.push('cogito');
+  if (modelId.includes('llama')) names.push('llama');
+  if (modelId.includes('deepseek')) names.push('deepseek');
+  if (modelId.includes('mistral')) names.push('mistral');
+  if (modelId.includes('hermes')) names.push('hermes');
+  
+  return names;
+}
+
+function checkAccuracy(responseText, expectedNames) {
+  return expectedNames.some(name => responseText.includes(name));
 }
 
 async function testAllModels() {
@@ -62,21 +92,55 @@ async function testAllModels() {
   const results = [];
   
   for (const model of models) {
-    const works = await testOllamaModel(model.id, model.name);
-    results.push({ ...model, works });
+    const result = await testOllamaModel(model.id, model.name);
+    results.push({ ...model, ...result });
     console.log(''); // Empty line for readability
   }
 
-  console.log('\n📊 SUMMARY:');
-  console.log('============');
+  console.log('\n📊 PERFORMANCE SUMMARY:');
+  console.log('========================');
   
   const working = results.filter(r => r.works);
   const notWorking = results.filter(r => !r.works);
   
-  console.log('\n✅ Available Ollama Models:');
-  working.forEach(model => {
-    console.log(`   • ${model.name}`);
-  });
+  if (working.length > 0) {
+    console.log('\n✅ Available Ollama Models:');
+    
+    // Sort by response time (fastest first)
+    const sortedBySpeed = [...working].sort((a, b) => a.responseTime - b.responseTime);
+    
+    sortedBySpeed.forEach((model, index) => {
+      const rank = index + 1;
+      const speedIcon = rank === 1 ? '🚀' : rank === 2 ? '⚡' : rank === 3 ? '🏃' : '🐌';
+      const accuracyIcon = model.accuracy ? '🎯' : '❌';
+      console.log(`   ${speedIcon} ${model.name}: ${model.responseTime}ms ${accuracyIcon}`);
+    });
+    
+    console.log('\n🏆 RECOMMENDATIONS:');
+    console.log('===================');
+    
+    // Find fastest accurate model
+    const accurateModels = working.filter(m => m.accuracy);
+    const fastestAccurate = accurateModels.length > 0 
+      ? accurateModels.sort((a, b) => a.responseTime - b.responseTime)[0]
+      : null;
+    
+    // Find fastest overall
+    const fastest = sortedBySpeed[0];
+    
+    if (fastestAccurate) {
+      console.log(`🎯 Best Overall: ${fastestAccurate.name} (${fastestAccurate.responseTime}ms, accurate)`);
+    }
+    
+    if (fastest && (!fastestAccurate || fastest.id !== fastestAccurate.id)) {
+      console.log(`🚀 Fastest: ${fastest.name} (${fastest.responseTime}ms${fastest.accuracy ? ', accurate' : ', inaccurate'})`);
+    }
+    
+    // Show accuracy stats
+    const accurateCount = working.filter(m => m.accuracy).length;
+    console.log(`\n📈 Accuracy: ${accurateCount}/${working.length} models correctly identified themselves`);
+    console.log(`⚡ Speed: Ranging from ${fastest.responseTime}ms to ${sortedBySpeed[sortedBySpeed.length-1].responseTime}ms`);
+  }
   
   if (notWorking.length > 0) {
     console.log('\n❌ Unavailable Ollama Models:');
@@ -85,16 +149,14 @@ async function testAllModels() {
     });
   }
   
+  if (working.length === 0) {
+    console.log('\n⚠️ No working Ollama models found. Please check your credentials.');
+  }
+  
   console.log('\n🔧 Ollama Configuration Status:');
   console.log('   Ollama URL:', process.env.OLLAMA_URL || 'Using default (roo.ai.hypha.coop)');
   console.log('   Ollama Username:', process.env.OLLAMA_USERNAME ? '✅ Configured' : '❌ Not configured');
   console.log('   Ollama Password:', process.env.OLLAMA_PASSWORD ? '✅ Configured' : '❌ Not configured');
-  
-  if (working.length > 0) {
-    console.log(`\n🎯 Recommendation: Use ${working[0]?.name} for best results`);
-  } else {
-    console.log('\n⚠️ No working Ollama models found. Please check your credentials.');
-  }
 }
 
 testAllModels(); 
