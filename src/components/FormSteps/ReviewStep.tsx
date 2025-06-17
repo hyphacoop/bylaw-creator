@@ -34,8 +34,11 @@ const ReviewStep: React.FC = () => {
     { id: 'claude-3-5-sonnet-20241022', name: 'Claude Sonnet 3.5', provider: 'claude' },
     { id: 'claude-3-5-haiku-20241022', name: 'Claude Haiku 3.5 (Fastest)', provider: 'claude' },
     // Ollama Models
-    { id: 'hermes3:70b', name: 'Hermes 3 70B (Ollama)', provider: 'ollama' },
+    { id: 'cogito:70b', name: 'Cogito 70B (Ollama)', provider: 'ollama' },
+    { id: 'llama3.3:latest', name: 'Llama 3.3 Latest (Ollama)', provider: 'ollama' },
     { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (Ollama)', provider: 'ollama' },
+    { id: 'mistral-large:latest', name: 'Mistral Large Latest (Ollama)', provider: 'ollama' },
+    { id: 'hermes3:70b', name: 'Hermes 3 70B (Ollama)', provider: 'ollama' },
   ];
 
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
