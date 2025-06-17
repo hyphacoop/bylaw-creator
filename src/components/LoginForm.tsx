@@ -69,7 +69,7 @@ const LoginForm: React.FC = () => {
         </form>
         
         <div className="mt-6 text-xs text-gray-500 text-center">
-          <p>🔒 This application is password protected to secure API access</p>
+          <p>🔒 This application is password protected</p>
         </div>
       </div>
     </div>

@@ -20,7 +20,7 @@ const FormContainer: React.FC = () => {
           <div className="bg-white p-6 rounded-lg shadow-lg text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-lg">Generating your bylaws...</p>
-            <p className="text-sm text-gray-600 mt-2">This may take a minute or two as we research legal requirements for your jurisdiction.</p>
+            <p className="text-sm text-gray-600 mt-2">This may take a minute or two as we assemble the bylaws for your co-operative.</p>
           </div>
         </div>
       )}
