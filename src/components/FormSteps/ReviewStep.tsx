@@ -2,8 +2,14 @@ import React from 'react';
 import { useFormContext } from '../../context/FormContext';
 
 const ReviewStep: React.FC = () => {
-  const { formData, updateFormData, prevStep, generateBylaws, isGenerating, errorMessage } = useFormContext();
-  
+  const { 
+    formData, 
+    updateFormData,
+    generateBylaws, 
+    isGenerating, 
+    goToStep 
+  } = useFormContext();
+
   const getJurisdictionDisplay = () => {
     return formData.jurisdiction === 'Other' ? formData.customJurisdiction : formData.jurisdiction;
   };
@@ -48,16 +54,18 @@ const ReviewStep: React.FC = () => {
   // Get the currently selected model
   const selectedModel = aiModels.find(model => model.id === (formData.claudeModel || 'claude-sonnet-4-20250514'));
   const isOllamaSelected = selectedModel?.provider === 'ollama';
-  
+
+  const handleGenerate = async () => {
+    await generateBylaws();
+  };
+
+  const handleGoBack = () => {
+    goToStep(4);
+  };
+
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-xl font-bold mb-4">Review Your Information</h2>
-      
-      {errorMessage && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          {errorMessage}
-        </div>
-      )}
       
       <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <h3 className="font-semibold text-lg mb-2">Basic Information</h3>
@@ -151,7 +159,7 @@ const ReviewStep: React.FC = () => {
               <p className="text-xs text-gray-500">
                 {isOllamaSelected 
                   ? "Web research is not available with Ollama models."
-                  : "Research current laws for more accurate bylaws. May take longer and timeout on free tier."
+                  : "Research current laws for more accurate bylaws. Now uses async processing (no timeouts)!"
                 }
               </p>
             </div>
@@ -178,8 +186,8 @@ const ReviewStep: React.FC = () => {
             </div>
           )}
           {formData.webSearchEnabled && !isOllamaSelected && (
-            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-              ⚠️ Web research may cause timeouts on Vercel's free tier (60s limit). Consider using faster models.
+            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-800">
+              ✅ Web research enabled with async processing - no timeout limits!
             </div>
           )}
         </div>
@@ -188,14 +196,14 @@ const ReviewStep: React.FC = () => {
       <div className="mt-6 text-sm text-gray-600 mb-6">
         <p>
           By clicking "Generate Bylaws", our system will use the selected AI model to research and create 
-          bylaws specific to your co-operative's needs and jurisdiction. This process may take 
-          up to a minute to complete.
+          bylaws specific to your co-operative's needs and jurisdiction. This process now uses async 
+          job processing, so it can take as long as needed without timeouts.
         </p>
       </div>
       
       <div className="flex justify-between">
         <button 
-          onClick={prevStep}
+          onClick={handleGoBack}
           className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
           disabled={isGenerating}
         >
@@ -203,7 +211,7 @@ const ReviewStep: React.FC = () => {
         </button>
         
         <button 
-          onClick={generateBylaws}
+          onClick={handleGenerate}
           className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed"
           disabled={isGenerating}
         >

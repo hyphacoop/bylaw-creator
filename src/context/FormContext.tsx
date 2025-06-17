@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import axios from 'axios';
+import { jobService, type JobStatusResponse } from '../services/jobService';
 
 // Define the form data structure
 interface FormData {
@@ -8,6 +8,7 @@ interface FormData {
   coopType: string;
   profitStatus: string;
   coopName: string;
+  purpose: string;
   fiscalYearStart: string;
   fiscalYearEnd: string;
   membershipEligibility: string;
@@ -19,6 +20,8 @@ interface FormData {
   specialResolutionThreshold: string;
   claudeModel: string;
   webSearchEnabled: boolean;
+  memberCategories?: any[];
+  governanceStructure?: string;
   [key: string]: any;
 }
 
@@ -34,7 +37,7 @@ interface FormContextType {
   generatedBylaws: string;
   isGenerating: boolean;
   generateBylaws: () => Promise<void>;
-  errorMessage: string | null;
+  generationProgress: string;
   resetFormData: () => void;
 }
 
@@ -44,6 +47,7 @@ const defaultFormData: FormData = {
   coopType: '',
   profitStatus: '',
   coopName: '',
+  purpose: '',
   fiscalYearStart: 'January',
   fiscalYearEnd: 'December',
   membershipEligibility: '',
@@ -55,6 +59,8 @@ const defaultFormData: FormData = {
   specialResolutionThreshold: '2/3',
   claudeModel: 'claude-sonnet-4-20250514', // Default to latest model
   webSearchEnabled: false, // Default to false for free tier to avoid timeouts
+  memberCategories: [],
+  governanceStructure: 'democratic',
 };
 
 // Create the context
@@ -82,7 +88,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [generatedBylaws, setGeneratedBylaws] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState('');
 
   // Update form data with new values
   const updateFormData = (newData: Partial<FormData>) => {
@@ -112,7 +118,8 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setFormData(defaultFormData);
     setGeneratedBylaws('');
     setCurrentStep(1);
-    setErrorMessage(null);
+    setIsGenerating(false);
+    setGenerationProgress('');
   };
 
   // Validate the current step's data
@@ -138,14 +145,11 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Generate bylaws using Claude API
   const generateBylaws = async () => {
+    setIsGenerating(true);
+    setGenerationProgress('Preparing your request...');
+
     try {
-      setIsGenerating(true);
-      setErrorMessage(null);
-      
-      // Log the API call attempt
-      console.log('Generating bylaws with Claude API (via proxy)');
-      
-      // Construct the prompt for Claude
+      // Build the detailed prompt
       const jurisdictionDisplay = formData.jurisdiction === 'Other' 
         ? formData.customJurisdiction?.trim()
         : formData.jurisdiction?.trim();
@@ -156,8 +160,6 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const link = coopLegislationLinks[jurisdictionKey as keyof typeof coopLegislationLinks];
       const allowedDomain = link ? new URL(link).hostname : null;
 
-
-      
       const prompt = isFrenchJurisdiction
         ? `
           Tu es un expert juridique spécialisé en droit coopératif au Québec.
@@ -166,12 +168,12 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           Tu peux consulter le site suivant si nécessaire : ${link || 'N/A'}.
 
-          Si certaines informations juridiques ne sont pas accessibles, continue en t’appuyant sur ta connaissance de la loi québécoise. Tu es responsable de générer un projet de statuts prêt pour relecture juridique.
+          Si certaines informations juridiques ne sont pas accessibles, continue en t'appuyant sur ta connaissance de la loi québécoise. Tu es responsable de générer un projet de statuts prêt pour relecture juridique.
 
           Détails :
           - Admissibilité : ${formData.membershipEligibility}
-          - Processus d’approbation des membres : ${formData.membershipApprovalProcess}
-          - Nombre d’administrateurs : ${formData.boardSize}
+          - Processus d'approbation des membres : ${formData.membershipApprovalProcess}
+          - Nombre d'administrateurs : ${formData.boardSize}
           - Durée du mandat : ${formData.boardTermYears} ans
           - Méthode décisionnelle : ${formData.decisionMakingMethod}
           - Seuil de résolution spéciale : ${formData.specialResolutionThreshold}
@@ -179,9 +181,9 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
           Structure attendue :
           1. Définitions et interprétation  
           2. Objet et siège social  
-          3. Conditions d’adhésion et procédures  
+          3. Conditions d'adhésion et procédures  
           4. Assemblées et droit de vote  
-          5. Conseil d’administration  
+          5. Conseil d'administration  
           6. Officiers  
           7. Dispositions financières  
           8. Amendements aux statuts  
@@ -196,7 +198,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           Use the ${jurisdictionDisplay} co-operative legislation to ensure legal compliance. You may consult the following domain if needed: ${link || 'N/A'}.
 
-          If relevant legal details are not fully accessible via search results, proceed by using your training and knowledge to draft legally compliant bylaws based on your best understanding of ${jurisdictionDisplay}’s co-operative legislation. Assume responsibility for generating a working draft for legal review.
+          If relevant legal details are not fully accessible via search results, proceed by using your training and knowledge to draft legally compliant bylaws based on your best understanding of ${jurisdictionDisplay}'s co-operative legislation. Assume responsibility for generating a working draft for legal review.
 
           Details:
           - Jurisdiction: ${jurisdictionDisplay}
@@ -223,8 +225,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
           9. Dissolution
           `.trim();
 
-
-
+      // Prepare the payload
       const payload: any = {
         model: formData.claudeModel || 'claude-3-5-haiku-20241022',
         messages: [
@@ -236,7 +237,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
         max_tokens: 5000
       };
       
-      // Only add web search tools if enabled by user (may cause timeout on free tier)
+      // Only add web search tools if enabled by user and allowed domain exists
       if (formData.webSearchEnabled && allowedDomain) {
         payload.tools = [{
           type: 'web_search_20250305',
@@ -244,61 +245,65 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
           max_uses: 3,
           allowed_domains: [allowedDomain]
         }];
-      } 
-      
-      
-      // Determine which API to use based on the model
-      const isOllamaModel = formData.claudeModel?.includes(':') || formData.claudeModel?.startsWith('hermes');
-      
-      // Call the appropriate API via the proxy
-      // For local development, use Express server endpoint; for Vercel, use serverless functions
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 
-        (window.location.hostname === 'localhost' ? 'http://localhost:4000' : '');
-      
-      const endpoint = isOllamaModel 
-        ? (window.location.hostname === 'localhost' ? '/ollama/generate' : '/api/ollama/generate')
-        : (window.location.hostname === 'localhost' ? '/anthropic/messages' : '/api/anthropic/messages');
-      
-      console.log(`Sending request to ${isOllamaModel ? 'Ollama' : 'Claude'} API via proxy at ${endpoint}`);
-      const response = await axios.post(`${API_BASE_URL}${endpoint}`, payload);
-      
-      console.log('Proxy response received:', response.status);
-      
-      // Extract the generated bylaws from Claude's response
-      const textBlocks = response.data.content?.filter((c: any) => c.type === 'text') || [];
-      const bylaws = textBlocks.map((c: any) => c.text).join('\n\n');
-      
-      const toolResults = response.data.content?.filter((c: any) => c.type === 'web_search_tool_result');
-      console.log('🔍 search results', JSON.stringify(toolResults, null, 2));
-      
-      const cleaned = bylaws.replace(
-        /^[\s\S]*?(BYLAWS OF[^\n]*\n)[\s\S]*?(?=\n?\s*1[.\s])/im,
-        '$1'
-      );
-      console.log('🔍 generated bylaws', cleaned);
+      }
 
-      setGeneratedBylaws(cleaned);
-      // Move to results step
-      setCurrentStep(6);
+      setGenerationProgress('Submitting your request...');
+
+      // Submit the job with the detailed payload
+      const submission = await jobService.submitJob({
+        formData,
+        payload,
+        isOllamaModel: formData.claudeModel?.includes(':') || formData.claudeModel?.startsWith('hermes')
+      });
       
+      setGenerationProgress('Your request has been submitted. Processing bylaws...');
+
+      // Poll for completion with progress updates
+      const result = await jobService.pollUntilComplete(
+        submission.jobId,
+        (status: JobStatusResponse) => {
+          switch (status.status) {
+            case 'queued':
+              setGenerationProgress('Your request is in the queue...');
+              break;
+            case 'processing':
+              setGenerationProgress('Generating your bylaws...');
+              break;
+            case 'completed':
+              setGenerationProgress('Bylaws generated successfully!');
+              break;
+            case 'failed':
+              setGenerationProgress('Generation failed. Please try again.');
+              break;
+          }
+        }
+      );
+
+      if (result.result) {
+        // Clean up the result like the original code did
+        const cleaned = result.result.replace(
+          /^[\s\S]*?(BYLAWS OF[^\n]*\n)[\s\S]*?(?=\n?\s*1[.\s])/im,
+          '$1'
+        );
+        
+        setGeneratedBylaws(cleaned || result.result);
+        setGenerationProgress('Complete!');
+        goToStep(6); // Move to results step
+      }
+
     } catch (error: any) {
-      console.error('Error generating bylaws via proxy:', error);
+      console.error('Error generating bylaws:', error);
       
       let errorMessage = 'There was an error generating your bylaws. Please try again.';
       
-      if (error.code === 'ERR_BAD_RESPONSE' && error.status === 504) {
-        errorMessage = formData.webSearchEnabled 
-          ? 'The request timed out due to web research taking too long on the 60-second free tier limit. Try disabling "Enable Web Research" for faster generation.'
-          : 'The request timed out due to the 60-second free tier limit. Please try again or consider using a faster model.';
-      } else if (error.response?.status === 401) {
+      if (error.message?.includes('timeout')) {
+        errorMessage = 'The request is taking longer than expected, but will continue processing in the background. Please check back in a few minutes.';
+      } else if (error.message?.includes('401')) {
         errorMessage = 'Authentication failed. Please refresh the page and log in again.';
-      } else if (error.response?.status >= 400 && error.response?.status < 500) {
-        errorMessage = `Client error (${error.response.status}): ${error.response?.data?.error || 'Please check your input and try again.'}`;
-      } else if (error.response?.status >= 500) {
-        errorMessage = 'Server error. The service may be temporarily unavailable. Please try again in a moment.';
       }
       
-      setErrorMessage(errorMessage);
+      setGenerationProgress(`Error: ${errorMessage}`);
+      alert(errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -317,7 +322,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       generatedBylaws,
       isGenerating,
       generateBylaws,
-      errorMessage,
+      generationProgress,
       resetFormData
     }}>
       {children}

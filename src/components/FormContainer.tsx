@@ -9,7 +9,7 @@ import ReviewStep from './FormSteps/ReviewStep';
 import ResultsStep from './FormSteps/ResultsStep';
 
 const FormContainer: React.FC = () => {
-  const { currentStep, isGenerating } = useFormContext();
+  const { currentStep, isGenerating, generationProgress } = useFormContext();
   
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -17,10 +17,21 @@ const FormContainer: React.FC = () => {
       
       {isGenerating && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg">Generating your bylaws...</p>
-            <p className="text-sm text-gray-600 mt-2">This may take a minute or two as we assemble the bylaws for your co-operative.</p>
+          <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md mx-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-6"></div>
+                        
+            <div className="space-y-4">
+              <p className="text-lg text-blue-600 font-medium">
+                {generationProgress || 'Preparing your request...'}
+              </p>
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> This process may take 2-5 minutes depending on complexity. 
+                  You can safely close this window - your job will continue processing.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}

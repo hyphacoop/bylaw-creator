@@ -86,7 +86,7 @@ async function testAllModels() {
     });
   }
   
-  console.log(`\n🎯 Recommendation: Use ${working[0]?.name || 'Claude Sonnet 3.5'} for best results`);
+  console.log(`\n✅ ${working.length} out of ${models.length} Claude models are working and ready to use!`);
 }
 
 testAllModels().catch(console.error); 

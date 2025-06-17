@@ -28,7 +28,7 @@ APP_PASSWORD=your-secure-password
 npm run encrypt-key
 
 # Then update .env with the encrypted keys
-CLAUDE_API_KEY_ENCRYPTED=your-encrypted-claude-key-from-script
+CLAUDE_API_KEY_ENCRYPTED=your-encrypted-claude-key
 OLLAMA_URL=https://roo.ai.hypha.coop/api/generate
 OLLAMA_USERNAME=roo
 OLLAMA_PASSWORD_ENCRYPTED=your-encrypted-ollama-password-from-script
@@ -246,3 +246,106 @@ You don't have to ever use `eject`. The curated feature set is suitable for smal
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
 To learn React, check out the [React documentation](https://reactjs.org/).
+
+# Bylaw Creator
+
+A React-based application for generating cooperative bylaws using AI, with support for unlimited processing time through asynchronous job processing.
+
+## Features
+
+- **Unlimited Processing Time**: Uses async job processing to work around Vercel's 60-second timeout
+- Multi-step form for collecting cooperative information
+- AI-powered bylaw generation using Claude API
+- PDF export functionality
+- Real-time progress tracking
+
+## Setup
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Set Up Upstash Redis (Free Tier)
+
+For async job processing, you need a Redis instance:
+
+1. Go to [Upstash](https://upstash.com/) and create a free account
+2. Create a new Redis database (free tier gives you 10,000 requests/day)
+3. Copy the REST URL and token from your database dashboard
+
+### 3. Configure Environment Variables
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Fill in your environment variables:
+
+```env
+# AI API Keys
+CLAUDE_API_KEY=your_claude_api_key_here
+
+# Upstash Redis (for async job processing)
+UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_upstash_token
+
+# Frontend URL (for CORS)
+FRONTEND_URL=http://localhost:3000
+```
+
+### 4. Deploy to Vercel
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+
+# Set environment variables in Vercel dashboard
+```
+
+## How Async Processing Works
+
+To work around Vercel's 60-second function timeout on the free tier:
+
+1. **Submit Job** (`/api/jobs/submit`): Accepts form data, returns job ID immediately
+2. **Poll Status** (`/api/jobs/status`): Check job progress by ID
+3. **Get Results**: Results are automatically delivered when complete
+
+The frontend automatically polls for completion, so users see real-time progress updates.
+
+### Benefits
+
+- ✅ **No timeout limitations** - Process can take as long as needed
+- ✅ **Real-time progress** - Users see status updates
+- ✅ **Fault tolerant** - Jobs persist even if browser is closed
+- ✅ **Free tier compatible** - Works within Vercel's free tier limits
+
+## API Endpoints
+
+### Traditional (Synchronous)
+- `POST /api/anthropic/messages` - Direct Claude API proxy (60s limit)
+
+### Async Job Processing
+- `POST /api/jobs/submit` - Submit bylaw generation job
+- `GET /api/jobs/status?jobId=xxx` - Check job status
+- Results included in status response when complete
+
+## Development
+
+```bash
+# Start development server
+npm start
+
+# Start with proxy server (if needed)
+npm run dev
+```
+
+## Deployment
+
+The application is configured for Vercel deployment with serverless functions for API endpoints.
