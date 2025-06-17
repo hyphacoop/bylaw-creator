@@ -35,6 +35,7 @@ interface FormContextType {
   isGenerating: boolean;
   generateBylaws: () => Promise<void>;
   errorMessage: string | null;
+  resetFormData: () => void;
 }
 
 // Default form data
@@ -52,7 +53,7 @@ const defaultFormData: FormData = {
   boardTermYears: 2,
   decisionMakingMethod: 'majority',
   specialResolutionThreshold: '2/3',
-  claudeModel: 'claude-3-5-haiku-20241022', // Default to fastest model for free tier
+  claudeModel: 'claude-sonnet-4-20250514', // Default to latest model
   webSearchEnabled: false, // Default to false for free tier to avoid timeouts
 };
 
@@ -104,6 +105,14 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Go to specific step
   const goToStep = (step: number) => {
     setCurrentStep(step);
+  };
+
+  // Reset form data to default values
+  const resetFormData = () => {
+    setFormData(defaultFormData);
+    setGeneratedBylaws('');
+    setCurrentStep(1);
+    setErrorMessage(null);
   };
 
   // Validate the current step's data
@@ -238,13 +247,19 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } 
       
       
-      // Call the Claude API via the proxy
+      // Determine which API to use based on the model
+      const isOllamaModel = formData.claudeModel?.includes(':') || formData.claudeModel?.startsWith('hermes');
+      
+      // Call the appropriate API via the proxy
       // For local development, use Express server endpoint; for Vercel, use serverless functions
       const API_BASE_URL = process.env.REACT_APP_API_URL || 
         (window.location.hostname === 'localhost' ? 'http://localhost:4000' : '');
       
-      const endpoint = window.location.hostname === 'localhost' ? '/anthropic/messages' : '/api/anthropic/messages';
-      console.log(`Sending request to proxy at ${endpoint}`);
+      const endpoint = isOllamaModel 
+        ? (window.location.hostname === 'localhost' ? '/ollama/generate' : '/api/ollama/generate')
+        : (window.location.hostname === 'localhost' ? '/anthropic/messages' : '/api/anthropic/messages');
+      
+      console.log(`Sending request to ${isOllamaModel ? 'Ollama' : 'Claude'} API via proxy at ${endpoint}`);
       const response = await axios.post(`${API_BASE_URL}${endpoint}`, payload);
       
       console.log('Proxy response received:', response.status);
@@ -302,7 +317,8 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       generatedBylaws,
       isGenerating,
       generateBylaws,
-      errorMessage
+      errorMessage,
+      resetFormData
     }}>
       {children}
     </FormContext.Provider>
