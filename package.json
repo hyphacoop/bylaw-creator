@@ -39,7 +39,8 @@
     "setup-env": "cp env.example .env",
     "deploy-setup": "node deploy-setup.js",
     "deploy-vercel": "node deploy-vercel.js",
-    "test-models": "node test-models.js"
+    "test-models": "node test-models.js",
+    "test-ollama": "node test-ollama.js"
   },
   "eslintConfig": {
     "extends": [
