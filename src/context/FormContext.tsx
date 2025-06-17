@@ -18,6 +18,7 @@ interface FormData {
   boardTermYears: number;
   decisionMakingMethod: string;
   specialResolutionThreshold: string;
+  supermajorityThreshold: string;
   claudeModel: string;
   webSearchEnabled: boolean;
   memberCategories?: any[];
@@ -57,6 +58,7 @@ const defaultFormData: FormData = {
   boardTermYears: 2,
   decisionMakingMethod: 'majority',
   specialResolutionThreshold: '2/3',
+  supermajorityThreshold: '2/3',
   claudeModel: 'claude-sonnet-4-20250514', // Default to latest model
   webSearchEnabled: false, // Default to false for free tier to avoid timeouts
   memberCategories: [],
@@ -158,7 +160,11 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 3: // Membership
         return Boolean(formData.membershipEligibility && formData.membershipEligibility.trim());
       case 4: // Governance
-        return validateBoardSize(formData.boardSize) && formData.boardTermYears >= 1;
+        const boardSizeValid = validateBoardSize(formData.boardSize);
+        const termYearValid = formData.boardTermYears >= 1;
+        const supermajorityThresholdValid = formData.decisionMakingMethod !== 'supermajority' || 
+          Boolean(formData.supermajorityThreshold && formData.supermajorityThreshold.trim());
+        return boardSizeValid && termYearValid && supermajorityThresholdValid;
       case 5: // Review
         return true;
       default:
@@ -198,7 +204,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
           - Processus d'approbation des membres : ${formData.membershipApprovalProcess}
           - Nombre d'administrateurs : ${formData.boardSize}
           - Durée du mandat : ${formData.boardTermYears} ans
-          - Méthode décisionnelle : ${formData.decisionMakingMethod}
+          - Méthode décisionnelle : ${formData.decisionMakingMethod}${formData.decisionMakingMethod === 'supermajority' ? ` (seuil: ${formData.supermajorityThreshold})` : ''}
           - Seuil de résolution spéciale : ${formData.specialResolutionThreshold}
 
           Structure attendue :
@@ -231,7 +237,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
           - Membership Approval Process: ${formData.membershipApprovalProcess}
           - Board Size: ${formData.boardSize}
           - Board Term Length: ${formData.boardTermYears} years
-          - Decision Making Method: ${formData.decisionMakingMethod}
+          - Decision Making Method: ${formData.decisionMakingMethod}${formData.decisionMakingMethod === 'supermajority' ? ` (threshold: ${formData.supermajorityThreshold})` : ''}
           - Special Resolution Threshold: ${formData.specialResolutionThreshold}
 
           Only output the final bylaws. Do not include commentary, search steps, or citations.

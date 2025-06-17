@@ -27,7 +27,7 @@ const ReviewStep: React.FC = () => {
     switch(formData.decisionMakingMethod) {
       case 'majority': return 'Simple majority (50% + 1)';
       case 'consensus': return 'Consensus';
-      case 'supermajority': return 'Supermajority';
+      case 'supermajority': return `Supermajority (${formData.supermajorityThreshold || '2/3'})`;
       default: return formData.decisionMakingMethod;
     }
   };

@@ -28,14 +28,23 @@ const GovernanceStep: React.FC = () => {
   };
   
   const isStepComplete = () => {
-    return validateBoardSize(formData.boardSize) && formData.boardTermYears >= 1;
+    const boardSizeValid = validateBoardSize(formData.boardSize);
+    const termYearValid = formData.boardTermYears >= 1;
+    const supermajorityThresholdValid = formData.decisionMakingMethod !== 'supermajority' || 
+      (formData.supermajorityThreshold && formData.supermajorityThreshold.trim());
+    
+    return boardSizeValid && termYearValid && supermajorityThresholdValid;
   };
   
   const handleContinue = () => {
     if (isStepComplete()) {
       nextStep();
     } else {
-      alert('Please ensure board size is valid (3-15 directors or range like "5-7") and term length is at least 1 year');
+      let errorMessage = 'Please ensure board size is valid (3-15 directors or range like "5-7") and term length is at least 1 year';
+      if (formData.decisionMakingMethod === 'supermajority' && (!formData.supermajorityThreshold || !formData.supermajorityThreshold.trim())) {
+        errorMessage += ', and supermajority threshold is specified';
+      }
+      alert(errorMessage);
     }
   };
   
@@ -82,6 +91,22 @@ const GovernanceStep: React.FC = () => {
           <option value="supermajority">Supermajority</option>
         </select>
       </div>
+
+      {formData.decisionMakingMethod === 'supermajority' && (
+        <div className="mb-4">
+          <label className="block mb-2">What supermajority threshold would you like? <span className="text-red-500">*</span></label>
+          <input 
+            type="text" 
+            value={formData.supermajorityThreshold || '2/3'} 
+            onChange={(e) => updateFormData({ supermajorityThreshold: e.target.value })}
+            className="w-full p-2 border border-gray-300 rounded"
+            placeholder="e.g., 2/3, 3/4, 66%, 75%"
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            Common supermajority thresholds include 2/3 (67%), 3/4 (75%), or custom percentages like 60% or 66%.
+          </p>
+        </div>
+      )}
       
       <div className="flex justify-between mt-6">
         <button 
