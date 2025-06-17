@@ -1,6 +1,6 @@
 # Co-operative Bylaw Generator
 
-A tool that guides users through creating bylaws for co-operatives, following legal requirements for different jurisdictions.
+A tool that guides users through creating bylaws for co-operatives, following legal requirements for different jurisdictions by using web_search.
 
 ## Environment Setup
 
@@ -16,25 +16,41 @@ npm run setup-env
 ```bash
 # In .env file
 CLAUDE_API_KEY=your-claude-api-key-here
+OLLAMA_URL=https://roo.ai.hypha.coop/api/generate
+OLLAMA_USERNAME=roo
+OLLAMA_PASSWORD=your-ollama-password-here
 APP_PASSWORD=your-secure-password
 ```
 
-**Option 2: Encrypted API Key (More Secure)**
+**Option 2: Encrypted API Keys (More Secure)**
 ```bash
-# Encrypt your API key
+# Encrypt your API keys
 npm run encrypt-key
 
-# Then update .env with the encrypted key
-CLAUDE_API_KEY_ENCRYPTED=your-encrypted-key-from-script
+# Then update .env with the encrypted keys
+CLAUDE_API_KEY_ENCRYPTED=your-encrypted-claude-key-from-script
+OLLAMA_URL=https://roo.ai.hypha.coop/api/generate
+OLLAMA_USERNAME=roo
+OLLAMA_PASSWORD_ENCRYPTED=your-encrypted-ollama-password-from-script
 APP_PASSWORD=your-password-used-for-encryption
 ```
 
 ### Required Environment Variables
 
+**Authentication:**
 - `APP_PASSWORD`: Password to access the application
 - `SESSION_SECRET`: Secure random string for session encryption
+
+**Claude API (Anthropic):**
 - `CLAUDE_API_KEY` OR `CLAUDE_API_KEY_ENCRYPTED`: Your Claude API key
-- `REACT_APP_CLAUDE_MODEL`: Claude model (default: claude-3-5-sonnet-20241022)
+
+**Ollama API (Optional, for Ollama models):**
+- `OLLAMA_URL`: Ollama API endpoint (default: https://roo.ai.hypha.coop/api/generate)
+- `OLLAMA_USERNAME`: Username for Ollama API (e.g., "roo")  
+- `OLLAMA_PASSWORD` OR `OLLAMA_PASSWORD_ENCRYPTED`: Your Ollama API password
+
+**Frontend:**
+- `REACT_APP_CLAUDE_MODEL`: Default AI model (default: claude-3-5-sonnet-20241022)
 
 ## Development
 
