@@ -2,7 +2,7 @@ import React from 'react';
 import { useFormContext } from '../../context/FormContext';
 
 const ReviewStep: React.FC = () => {
-  const { formData, prevStep, generateBylaws, isGenerating, errorMessage } = useFormContext();
+  const { formData, updateFormData, prevStep, generateBylaws, isGenerating, errorMessage } = useFormContext();
   
   const getJurisdictionDisplay = () => {
     return formData.jurisdiction === 'Other' ? formData.customJurisdiction : formData.jurisdiction;
@@ -25,6 +25,26 @@ const ReviewStep: React.FC = () => {
       default: return formData.decisionMakingMethod;
     }
   };
+
+  const aiModels = [
+    // Claude Models
+    { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4 (Latest)', provider: 'claude' },
+    { id: 'claude-opus-4-20250514', name: 'Claude Opus 4 (Most Powerful)', provider: 'claude' },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude Sonnet 3.7', provider: 'claude' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude Sonnet 3.5', provider: 'claude' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude Haiku 3.5 (Fastest)', provider: 'claude' },
+    // Ollama Models
+    { id: 'hermes3:70b', name: 'Hermes 3 70B (Ollama)', provider: 'ollama' },
+    { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (Ollama)', provider: 'ollama' },
+  ];
+
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateFormData({ claudeModel: e.target.value });
+  };
+  
+  // Get the currently selected model
+  const selectedModel = aiModels.find(model => model.id === (formData.claudeModel || 'claude-sonnet-4-20250514'));
+  const isOllamaSelected = selectedModel?.provider === 'ollama';
   
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
@@ -89,25 +109,82 @@ const ReviewStep: React.FC = () => {
       </div>
 
       <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <h3 className="font-semibold text-lg mb-2">AI Model Configuration</h3>
-        <div>
-          <p className="text-sm text-gray-600">Selected Model:</p>
-          <p className="font-medium text-blue-700">
-            {formData.claudeModel === 'claude-sonnet-4-20250514' && 'Claude Sonnet 4 (Latest)'}
-            {formData.claudeModel === 'claude-opus-4-20250514' && 'Claude Opus 4 (Most Powerful)'}
-            {formData.claudeModel === 'claude-3-7-sonnet-20250219' && 'Claude Sonnet 3.7'}
-            {formData.claudeModel === 'claude-3-5-sonnet-20241022' && 'Claude Sonnet 3.5 (Legacy)'}
-            {formData.claudeModel === 'claude-3-5-haiku-20241022' && 'Claude Haiku 3.5 (Fastest)'}
-          </p>
+        <h3 className="font-semibold text-lg mb-2">AI Model Selection</h3>
+        <p className="text-sm text-gray-600 mb-3">Choose which AI model to use for generating your bylaws</p>
+        
+        <div className="mb-4">
+          <select 
+            value={formData.claudeModel || 'claude-sonnet-4-20250514'} 
+            onChange={handleModelChange}
+            className="w-full p-3 border border-gray-300 rounded"
+            disabled={isGenerating}
+          >
+            <optgroup label="Claude Models (Anthropic)">
+              {aiModels.filter(model => model.provider === 'claude').map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Ollama Models (Hypha)">
+              {aiModels.filter(model => model.provider === 'ollama').map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
+                </option>
+              ))}
+            </optgroup>
+          </select>
           <p className="text-xs text-gray-500 mt-1">
-            This AI model will be used to generate your bylaws with the latest legal reasoning capabilities.
+            This AI model will be used to generate your bylaws. Claude models use Anthropic's API, while Ollama models use your configured Ollama endpoint.
           </p>
+        </div>
+        
+        <div className="border-t border-blue-200 pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={`text-sm font-medium ${isOllamaSelected ? 'text-gray-400' : 'text-gray-700'}`}>
+                Enable Web Research
+              </p>
+              <p className="text-xs text-gray-500">
+                {isOllamaSelected 
+                  ? "Web research is not available with Ollama models."
+                  : "Research current laws for more accurate bylaws. May take longer and timeout on free tier."
+                }
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={formData.webSearchEnabled && !isOllamaSelected}
+                onChange={(e) => updateFormData({ webSearchEnabled: e.target.checked })}
+                disabled={isGenerating || isOllamaSelected}
+              />
+              <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                (formData.webSearchEnabled && !isOllamaSelected) ? 'bg-blue-600' : 'bg-gray-300'
+              } ${(isGenerating || isOllamaSelected) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-transform duration-200 ease-in-out ${
+                  (formData.webSearchEnabled && !isOllamaSelected) ? 'translate-x-5' : 'translate-x-0'
+                }`}></div>
+              </div>
+            </label>
+          </div>
+          {isOllamaSelected && (
+            <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600">
+              ℹ️ Ollama models run locally and don't have access to web search capabilities.
+            </div>
+          )}
+          {formData.webSearchEnabled && !isOllamaSelected && (
+            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+              ⚠️ Web research may cause timeouts on Vercel's free tier (60s limit). Consider using faster models.
+            </div>
+          )}
         </div>
       </div>
       
       <div className="mt-6 text-sm text-gray-600 mb-6">
         <p>
-          By clicking "Generate Bylaws", our system will use Claude AI to research and create 
+          By clicking "Generate Bylaws", our system will use the selected AI model to research and create 
           bylaws specific to your co-operative's needs and jurisdiction. This process may take 
           up to a minute to complete.
         </p>
