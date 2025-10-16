@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { jobService, type JobStatusResponse } from '../services/jobService';
+import { cleanGeneratedText } from '../utils/textUtils';
 
 // Default model selection
 const DEFAULT_MODEL = 'qwen3:32b';
@@ -277,12 +278,15 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (result.result) {
         // Clean up the result like the original code did
-        const cleaned = result.result.replace(
+        let cleaned = result.result.replace(
           /^[\s\S]*?(BYLAWS OF[^\n]*\n)[\s\S]*?(?=\n?\s*1[.\s])/im,
           '$1'
         );
         
-        setGeneratedBylaws(cleaned || result.result);
+        // Apply additional cleaning to remove think tags and other artifacts
+        cleaned = cleanGeneratedText(cleaned || result.result);
+        
+        setGeneratedBylaws(cleaned);
         setGenerationProgress('Complete!');
         goToStep(6); // Move to results step
       }
