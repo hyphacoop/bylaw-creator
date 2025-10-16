@@ -22,7 +22,6 @@ export interface JobStatusResponse {
 export interface JobSubmissionData {
   formData: any;
   payload: any;
-  isOllamaModel: boolean;
 }
 
 export class JobService {
@@ -41,10 +40,9 @@ export class JobService {
   }
 
   async submitJob(jobData: JobSubmissionData): Promise<JobSubmissionResponse> {
-    logEvent('Submitting job for bylaw generation', LogLevel.INFO, { 
+    logEvent('Submitting job for bylaw generation', LogLevel.INFO, {
       coopName: jobData.formData.coopName,
-      model: jobData.payload.model,
-      isOllama: jobData.isOllamaModel
+      model: jobData.payload.model
     });
     
     try {

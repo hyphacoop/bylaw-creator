@@ -1,6 +1,9 @@
 import React from 'react';
 import { useFormContext } from '../../context/FormContext';
 
+// Default model selection
+const DEFAULT_MODEL = 'qwen3:32b';
+
 const ReviewStep: React.FC = () => {
   const { 
     formData, 
@@ -47,27 +50,32 @@ const ReviewStep: React.FC = () => {
   };
 
   const aiModels = [
-    // Claude Models
-    { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4 (Latest)', provider: 'claude' },
-    { id: 'claude-opus-4-20250514', name: 'Claude Opus 4 (Most Powerful)', provider: 'claude' },
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude Sonnet 3.7', provider: 'claude' },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude Sonnet 3.5', provider: 'claude' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude Haiku 3.5 (Fastest)', provider: 'claude' },
-    // Ollama Models
-    { id: 'cogito:70b', name: 'Cogito 70B (Ollama)', provider: 'ollama' },
-    { id: 'llama3.3:latest', name: 'Llama 3.3 Latest (Ollama)', provider: 'ollama' },
-    { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (Ollama)', provider: 'ollama' },
-    { id: 'mistral-large:latest', name: 'Mistral Large Latest (Ollama)', provider: 'ollama' },
-    { id: 'hermes3:70b', name: 'Hermes 3 70B (Ollama)', provider: 'ollama' },
+    // Large Models (70B+)
+    { id: 'gpt-oss:120b', name: 'GPT OSS 120B (Most Powerful)', category: 'large', size: '65 GB' },
+    { id: 'mistral-large:latest', name: 'Mistral Large (73B)', category: 'large', size: '73 GB' },
+    { id: 'cogito:70b', name: 'Cogito 70B (Reasoning)', category: 'large', size: '42 GB' },
+    { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (Reasoning)', category: 'large', size: '42 GB' },
+    { id: 'llama3.3:latest', name: 'Llama 3.3 70B', category: 'large', size: '42 GB' },
+    { id: 'hermes3:70b', name: 'Hermes 3 70B', category: 'large', size: '39 GB' },
+    // Medium Models (20-32B)
+    { id: 'qwen3:32b', name: 'Qwen 3 32B', category: 'medium', size: '20 GB' },
+    { id: 'gpt-oss:20b', name: 'GPT OSS 20B', category: 'medium', size: '13 GB' },
+    { id: 'qwen3-coder:latest', name: 'Qwen 3 Coder (Structured Text)', category: 'medium', size: '18 GB' },
+    // Small Models (Fast)
+    { id: 'qwen3:8b', name: 'Qwen 3 8B (Fast)', category: 'small', size: '5.2 GB' },
+    { id: 'hermes3:latest', name: 'Hermes 3 8B (Fast)', category: 'small', size: '4.7 GB' },
+    { id: 'gemma3:latest', name: 'Gemma 3 (Fastest)', category: 'small', size: '3.3 GB' },
   ];
 
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     updateFormData({ claudeModel: e.target.value });
   };
-  
-  // Get the currently selected model
-  const selectedModel = aiModels.find(model => model.id === (formData.claudeModel || 'claude-sonnet-4-20250514'));
-  const isOllamaSelected = selectedModel?.provider === 'ollama';
+
+  // Get the currently selected model with backwards compatibility
+  // If user has old Claude model saved, fallback to default
+  const modelId = formData.claudeModel || DEFAULT_MODEL;
+  const selectedModel = aiModels.find(model => model.id === modelId);
+  const safeModelId = selectedModel ? modelId : DEFAULT_MODEL;
 
   const handleGenerate = async () => {
     await generateBylaws();
@@ -135,83 +143,47 @@ const ReviewStep: React.FC = () => {
 
       <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
         <h3 className="font-semibold text-lg mb-2">AI Model Selection</h3>
-        <p className="text-sm text-gray-600 mb-3">Choose which AI model to use for generating your bylaws</p>
-        
+        <p className="text-sm text-gray-600 mb-3">Choose which Ollama model to use for generating your bylaws</p>
+
         <div className="mb-4">
-          <select 
-            value={formData.claudeModel || 'claude-sonnet-4-20250514'} 
+          <select
+            value={safeModelId}
             onChange={handleModelChange}
             className="w-full p-3 border border-gray-300 rounded"
             disabled={isGenerating}
           >
-            <optgroup label="Claude Models (Anthropic)">
-              {aiModels.filter(model => model.provider === 'claude').map((model) => (
+            <optgroup label="Large Models (Best Quality)">
+              {aiModels.filter(m => m.category === 'large').map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name}
+                  {model.name} - {model.size}
                 </option>
               ))}
             </optgroup>
-            <optgroup label="Ollama Models (Hypha)">
-              {aiModels.filter(model => model.provider === 'ollama').map((model) => (
+            <optgroup label="Medium Models (Balanced)">
+              {aiModels.filter(m => m.category === 'medium').map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name}
+                  {model.name} - {model.size}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Small Models (Fastest)">
+              {aiModels.filter(m => m.category === 'small').map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name} - {model.size}
                 </option>
               ))}
             </optgroup>
           </select>
           <p className="text-xs text-gray-500 mt-1">
-            This AI model will be used to generate your bylaws. Claude models use Anthropic's API, while Ollama models use your configured Ollama endpoint.
+            All models run on Hypha's Ollama infrastructure. Larger models provide better quality but may take longer to generate bylaws.
           </p>
-        </div>
-        
-        <div className="border-t border-blue-200 pt-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className={`text-sm font-medium ${isOllamaSelected ? 'text-gray-400' : 'text-gray-700'}`}>
-                Enable Web Research
-              </p>
-              <p className="text-xs text-gray-500">
-                {isOllamaSelected 
-                  ? "Web research is not available with Ollama models."
-                  : "Research current laws for more accurate bylaws. Now uses async processing (no timeouts)!"
-                }
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={formData.webSearchEnabled && !isOllamaSelected}
-                onChange={(e) => updateFormData({ webSearchEnabled: e.target.checked })}
-                disabled={isGenerating || isOllamaSelected}
-              />
-              <div className={`relative w-11 h-6 rounded-full transition-colors duration-200 ease-in-out ${
-                (formData.webSearchEnabled && !isOllamaSelected) ? 'bg-blue-600' : 'bg-gray-300'
-              } ${(isGenerating || isOllamaSelected) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-transform duration-200 ease-in-out ${
-                  (formData.webSearchEnabled && !isOllamaSelected) ? 'translate-x-5' : 'translate-x-0'
-                }`}></div>
-              </div>
-            </label>
-          </div>
-          {isOllamaSelected && (
-            <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600">
-              ℹ️ Ollama models run locally and don't have access to web search capabilities.
-            </div>
-          )}
-          {formData.webSearchEnabled && !isOllamaSelected && (
-            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-800">
-              ✅ Web research enabled with async processing - no timeout limits!
-            </div>
-          )}
         </div>
       </div>
       
       <div className="mt-6 text-sm text-gray-600 mb-6">
         <p>
-          By clicking "Generate Bylaws", our system will use the selected AI model to research and create 
-          bylaws specific to your co-operative's needs and jurisdiction. This process now uses async 
-          job processing, so it can take as long as needed without timeouts.
+          By clicking "Generate Bylaws", the selected Ollama model will generate bylaws specific to your
+          co-operative's needs and jurisdiction. Generation may take a few minutes depending on the model selected.
         </p>
       </div>
       

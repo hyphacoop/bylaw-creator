@@ -39,7 +39,7 @@ export default function handler(req, res) {
     const cookie = serialize('auth-session', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 24 * 60 * 60, // 24 hours
       path: '/'
     })

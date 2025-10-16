@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState } from 'react';
 import { jobService, type JobStatusResponse } from '../services/jobService';
 
+// Default model selection
+const DEFAULT_MODEL = 'qwen3:32b';
+
 // Define the form data structure
 interface FormData {
   jurisdiction: string;
@@ -20,7 +23,6 @@ interface FormData {
   specialResolutionThreshold: string;
   supermajorityThreshold: string;
   claudeModel: string;
-  webSearchEnabled: boolean;
   memberCategories?: any[];
   governanceStructure?: string;
   [key: string]: any;
@@ -59,30 +61,13 @@ const defaultFormData: FormData = {
   decisionMakingMethod: 'majority',
   specialResolutionThreshold: '2/3',
   supermajorityThreshold: '2/3',
-  claudeModel: 'claude-sonnet-4-20250514', // Default to latest model
-  webSearchEnabled: false, // Default to false for free tier to avoid timeouts
+  claudeModel: DEFAULT_MODEL, // Default to balanced Ollama model
   memberCategories: [],
   governanceStructure: 'democratic',
 };
 
 // Create the context
 const FormContext = createContext<FormContextType | undefined>(undefined);
-
-// Define the coop legislation links
-const coopLegislationLinks = {
-  federal: "https://laws-lois.justice.gc.ca/eng/acts/c-1.7/",
-  alberta: "https://open.alberta.ca/publications/c28p1",
-  british_columbia: "https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/99028_01",
-  manitoba: "https://web2.gov.mb.ca/laws/statutes/ccsm/c223.php?lang=en",
-  new_brunswick: "https://laws.gnb.ca/en/document/cs/C-22.1",
-  newfoundland_and_labrador: "https://www.gov.nl.ca/dgsnl/registries/coop/coop-about/",
-  northwest_territories: "https://www.justice.gov.nt.ca/en/cooperative-associations/",
-  nova_scotia: "https://nslegislature.ca/sites/default/files/legc/statutes/co-operative%20associations.pdf",
-  nunavut: "https://www.gov.nu.ca/sites/default/files/policies-legislations/2024-01/Nunavut%20Acts%20Designation%20Policy%201224%201225.pdf",
-  ontario: "https://www.ontario.ca/laws/statute/90c35",
-  quebec: "https://www.legisquebec.gouv.qc.ca/en/document/cs/c-67.2",
-  saskatchewan: "https://publications.saskatchewan.ca/",
-}
 
 // Helper function to validate board size (supports both single numbers and intervals)
 const validateBoardSize = (boardSize: string): boolean => {
@@ -179,15 +164,12 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       // Build the detailed prompt
-      const jurisdictionDisplay = formData.jurisdiction === 'Other' 
+      const jurisdictionDisplay = formData.jurisdiction === 'Other'
         ? formData.customJurisdiction?.trim()
         : formData.jurisdiction?.trim();
-      
+
       const jurisdictionKey = (jurisdictionDisplay || '').toLowerCase().replace(/\s+/g, '_');
       const isFrenchJurisdiction = jurisdictionKey === 'quebec';
-
-      const link = coopLegislationLinks[jurisdictionKey as keyof typeof coopLegislationLinks];
-      const allowedDomain = link ? new URL(link).hostname : null;
 
       const prompt = isFrenchJurisdiction
         ? `
@@ -195,9 +177,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           Génére des statuts complets, conformes à la Loi sur les coopératives (chapitre C-67.2), pour une coopérative ${formData.coopType.toLowerCase()} à but ${formData.profitStatus.toLowerCase()} nommée "${formData.coopName}".
 
-          Tu peux consulter le site suivant si nécessaire : ${link || 'N/A'}.
-
-          Si certaines informations juridiques ne sont pas accessibles, continue en t'appuyant sur ta connaissance de la loi québécoise. Tu es responsable de générer un projet de statuts prêt pour relecture juridique.
+          Génère un projet de statuts prêt pour relecture juridique en t'appuyant sur ta connaissance de la loi québécoise.
 
           Détails :
           - Admissibilité : ${formData.membershipEligibility}
@@ -225,9 +205,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           Generate complete, legally compliant bylaws for a ${formData.coopType} co-operative based in ${jurisdictionDisplay}, named "${formData.coopName}".
 
-          Use the ${jurisdictionDisplay} co-operative legislation to ensure legal compliance. You may consult the following domain if needed: ${link || 'N/A'}.
-
-          If relevant legal details are not fully accessible via search results, proceed by using your training and knowledge to draft legally compliant bylaws based on your best understanding of ${jurisdictionDisplay}'s co-operative legislation. Assume responsibility for generating a working draft for legal review.
+          Draft legally compliant bylaws based on your knowledge of ${jurisdictionDisplay}'s co-operative legislation. Generate a working draft ready for legal review.
 
           Details:
           - Jurisdiction: ${jurisdictionDisplay}
@@ -254,9 +232,9 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
           9. Dissolution
           `.trim();
 
-      // Prepare the payload
+      // Prepare the payload for Ollama
       const payload: any = {
-        model: formData.claudeModel || 'claude-3-5-haiku-20241022',
+        model: formData.claudeModel || DEFAULT_MODEL,
         messages: [
           {
             role: "user",
@@ -265,24 +243,13 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ],
         max_tokens: 5000
       };
-      
-      // Only add web search tools if enabled by user and allowed domain exists
-      if (formData.webSearchEnabled && allowedDomain) {
-        payload.tools = [{
-          type: 'web_search_20250305',
-          name: 'web_search',
-          max_uses: 3,
-          allowed_domains: [allowedDomain]
-        }];
-      }
 
       setGenerationProgress('Submitting your request...');
 
       // Submit the job with the detailed payload
       const submission = await jobService.submitJob({
         formData,
-        payload,
-        isOllamaModel: formData.claudeModel?.includes(':') || formData.claudeModel?.startsWith('hermes')
+        payload
       });
       
       setGenerationProgress('Your request has been submitted. Processing bylaws...');
