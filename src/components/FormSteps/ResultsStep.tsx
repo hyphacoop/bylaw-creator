@@ -88,6 +88,38 @@ const ResultsStep: React.FC = () => {
         {children}
       </blockquote>
     ),
+    table: ({ children }: any) => (
+      <div className="overflow-x-auto my-4">
+        <table className="min-w-full border border-gray-300">
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ children }: any) => (
+      <thead className="bg-gray-50">
+        {children}
+      </thead>
+    ),
+    tbody: ({ children }: any) => (
+      <tbody className="divide-y divide-gray-200">
+        {children}
+      </tbody>
+    ),
+    tr: ({ children }: any) => (
+      <tr className="hover:bg-gray-50">
+        {children}
+      </tr>
+    ),
+    th: ({ children }: any) => (
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900 border-b border-gray-300">
+        {children}
+      </th>
+    ),
+    td: ({ children }: any) => (
+      <td className="px-4 py-2 text-sm text-gray-800 border-b border-gray-200">
+        {children}
+      </td>
+    ),
   };
   
   return (
