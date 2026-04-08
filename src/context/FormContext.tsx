@@ -3,7 +3,7 @@ import { jobService, type JobStatusResponse } from '../services/jobService';
 import { cleanGeneratedText } from '../utils/textUtils';
 
 // Default model selection
-const DEFAULT_MODEL = 'qwen3:32b';
+const DEFAULT_MODEL = 'qwen3.5:9b';
 
 // Define the form data structure
 interface FormData {
@@ -62,7 +62,7 @@ const defaultFormData: FormData = {
   decisionMakingMethod: 'majority',
   specialResolutionThreshold: '2/3',
   supermajorityThreshold: '2/3',
-  claudeModel: DEFAULT_MODEL, // Default to balanced Ollama model
+  claudeModel: DEFAULT_MODEL, // Default to the current balanced Ollama model
   memberCategories: [],
   governanceStructure: 'democratic',
 };

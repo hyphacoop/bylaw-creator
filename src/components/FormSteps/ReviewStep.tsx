@@ -2,7 +2,7 @@ import React from 'react';
 import { useFormContext } from '../../context/FormContext';
 
 // Default model selection
-const DEFAULT_MODEL = 'qwen3:32b';
+const DEFAULT_MODEL = 'qwen3.5:9b';
 
 const ReviewStep: React.FC = () => {
   const { 
@@ -57,7 +57,8 @@ const ReviewStep: React.FC = () => {
     { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (Reasoning)', category: 'large', size: '42 GB' },
     { id: 'llama3.3:latest', name: 'Llama 3.3 70B', category: 'large', size: '42 GB' },
     { id: 'hermes3:70b', name: 'Hermes 3 70B', category: 'large', size: '39 GB' },
-    // Medium Models (20-32B)
+    // Medium Models (Balanced)
+    { id: 'qwen3.5:9b', name: 'Qwen 3.5 9B', category: 'medium', size: '6 GB' },
     { id: 'qwen3:32b', name: 'Qwen 3 32B', category: 'medium', size: '20 GB' },
     { id: 'gpt-oss:20b', name: 'GPT OSS 20B', category: 'medium', size: '13 GB' },
     { id: 'qwen3-coder:latest', name: 'Qwen 3 Coder (Structured Text)', category: 'medium', size: '18 GB' },

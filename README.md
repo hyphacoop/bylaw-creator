@@ -134,8 +134,9 @@ vercel --prod
 - llama 3.3 70b (42 GB)
 - hermes 3 70b (39 GB)
 
-### medium models (20-32B) - balanced
-- qwen 3 32b (20 GB) - default
+### medium models (balanced)
+- qwen 3.5 9b (6 GB) - default
+- qwen 3 32b (20 GB)
 - gpt oss 20b (13 GB)
 - qwen 3 coder (18 GB)
 
