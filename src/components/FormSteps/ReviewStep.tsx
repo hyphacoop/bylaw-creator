@@ -2,7 +2,7 @@ import React from 'react';
 import { useFormContext } from '../../context/FormContext';
 
 // Default model selection
-const DEFAULT_MODEL = 'qwen3:32b';
+const DEFAULT_MODEL = 'qwen3.5:9b';
 
 const ReviewStep: React.FC = () => {
   const { 
@@ -50,6 +50,8 @@ const ReviewStep: React.FC = () => {
   };
 
   const aiModels = [
+    // Qwen 3.5 Models
+    { id: 'qwen3.5:35b', name: 'Qwen 3.5 35B', category: 'large', size: '23 GB' },
     // Large Models (70B+)
     { id: 'gpt-oss:120b', name: 'GPT OSS 120B (Most Powerful)', category: 'large', size: '65 GB' },
     { id: 'mistral-large:latest', name: 'Mistral Large (73B)', category: 'large', size: '73 GB' },
@@ -57,11 +59,14 @@ const ReviewStep: React.FC = () => {
     { id: 'deepseek-r1:70b', name: 'DeepSeek R1 70B (Reasoning)', category: 'large', size: '42 GB' },
     { id: 'llama3.3:latest', name: 'Llama 3.3 70B', category: 'large', size: '42 GB' },
     { id: 'hermes3:70b', name: 'Hermes 3 70B', category: 'large', size: '39 GB' },
-    // Medium Models (20-32B)
+    // Medium Models (Balanced)
+    { id: 'qwen3.5:9b', name: 'Qwen 3.5 9B', category: 'medium', size: '6 GB' },
+    { id: 'qwen3.5:27b', name: 'Qwen 3.5 27B', category: 'medium', size: '17 GB' },
     { id: 'qwen3:32b', name: 'Qwen 3 32B', category: 'medium', size: '20 GB' },
     { id: 'gpt-oss:20b', name: 'GPT OSS 20B', category: 'medium', size: '13 GB' },
     { id: 'qwen3-coder:latest', name: 'Qwen 3 Coder (Structured Text)', category: 'medium', size: '18 GB' },
     // Small Models (Fast)
+    { id: 'qwen3.5:2b', name: 'Qwen 3.5 2B (Fastest)', category: 'small', size: '2.7 GB' },
     { id: 'qwen3:8b', name: 'Qwen 3 8B (Fast)', category: 'small', size: '5.2 GB' },
     { id: 'hermes3:latest', name: 'Hermes 3 8B (Fast)', category: 'small', size: '4.7 GB' },
     { id: 'gemma3:latest', name: 'Gemma 3 (Fastest)', category: 'small', size: '3.3 GB' },
