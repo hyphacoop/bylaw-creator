@@ -127,6 +127,7 @@ vercel --prod
 ## available models
 
 ### large models (70B+) - best quality
+- qwen 3.5 35b (23 GB)
 - gpt oss 120b (65 GB)
 - mistral large (73 GB)
 - cogito 70b (42 GB)
@@ -136,11 +137,13 @@ vercel --prod
 
 ### medium models (balanced)
 - qwen 3.5 9b (6 GB) - default
+- qwen 3.5 27b (17 GB)
 - qwen 3 32b (20 GB)
 - gpt oss 20b (13 GB)
 - qwen 3 coder (18 GB)
 
 ### small models (8B) - fastest
+- qwen 3.5 2b (2.7 GB)
 - qwen 3 8b (5.2 GB)
 - hermes 3 8b (4.7 GB)
 - gemma 3 (3.3 GB)
