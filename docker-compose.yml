@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    image: bylaw-creator:latest
+    env_file: .env
+    environment:
+      PORT: 4000
+    ports:
+      - "${HOST_PORT:-4000}:4000"
+    # Lets the container reach an Ollama running on the host via
+    # OLLAMA_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

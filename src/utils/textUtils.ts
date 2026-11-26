@@ -24,6 +24,12 @@ export const cleanGeneratedText = (text: string): string => {
   
   // Remove think tags first
   cleaned = removeThinkTags(cleaned);
+
+  // Unwrap output the model put inside a ``` / ```markdown code block
+  cleaned = stripCodeFence(cleaned);
+
+  // Drop any preamble ("Here are your bylaws...") before the first top-level heading
+  cleaned = stripPreamble(cleaned);
   
   // Remove excessive whitespace
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
@@ -32,4 +38,22 @@ export const cleanGeneratedText = (text: string): string => {
   cleaned = cleaned.replace(/^\s+|\s+$/g, '');
   
   return cleaned;
+};
+
+/**
+ * Removes a code fence wrapping the whole response, e.g. ```markdown ... ```
+ */
+export const stripCodeFence = (text: string): string => {
+  if (!text) return text;
+  const match = text.trim().match(/^```[\w-]*\n([\s\S]*?)\n?```$/);
+  return match ? match[1] : text;
+};
+
+/**
+ * Removes text before the first level-1 Markdown heading ("# Title"), if there is one
+ */
+export const stripPreamble = (text: string): string => {
+  if (!text) return text;
+  const index = text.search(/^#\s+\S/m);
+  return index > 0 ? text.slice(index) : text;
 };

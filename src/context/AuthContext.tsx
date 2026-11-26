@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiUrl } from '../services/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -10,14 +10,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// For local development, use Express server
-// For production/Vercel, use relative URLs to serverless functions
-const API_BASE_URL = process.env.REACT_APP_API_URL || 
-  (window.location.hostname === 'localhost' ? 'http://localhost:4000' : '');
-
-// Configure axios defaults
-axios.defaults.withCredentials = true;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -31,10 +23,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuthStatus = async () => {
     try {
-      // Use /api/ prefix for Vercel, direct endpoints for local development
-      const endpoint = window.location.hostname === 'localhost' ? '/auth/status' : '/api/auth/status';
-      const response = await axios.get(`${API_BASE_URL}${endpoint}`);
-      setIsAuthenticated(response.data.authenticated);
+      const response = await fetch(apiUrl('/api/auth/status'), { credentials: 'include' });
+      const data = await response.json();
+      setIsAuthenticated(!!data.authenticated);
     } catch (error) {
       console.error('Auth status check failed:', error);
       setIsAuthenticated(false);
@@ -48,18 +39,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       setIsLoading(true);
       
-      // Use /api/ prefix for Vercel, direct endpoints for local development
-      const endpoint = window.location.hostname === 'localhost' ? '/auth/login' : '/api/auth/login';
-      const response = await axios.post(`${API_BASE_URL}${endpoint}`, { password });
-      
-      if (response.data.success) {
+      const response = await fetch(apiUrl('/api/auth/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ password }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data.success) {
         setIsAuthenticated(true);
         return true;
       }
+      setError(data.error || 'Login failed');
+      setIsAuthenticated(false);
       return false;
-    } catch (error: any) {
-      const message = error.response?.data?.error || 'Login failed';
-      setError(message);
+    } catch {
+      setError('Login failed');
       setIsAuthenticated(false);
       return false;
     } finally {
@@ -69,9 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      // Use /api/ prefix for Vercel, direct endpoints for local development
-      const endpoint = window.location.hostname === 'localhost' ? '/auth/logout' : '/api/auth/logout';
-      await axios.post(`${API_BASE_URL}${endpoint}`);
+      await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {

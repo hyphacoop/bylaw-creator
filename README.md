@@ -5,124 +5,89 @@ a tool that guides users through creating bylaws for co-operatives using ai-powe
 ## features
 
 - multi-step form for collecting co-operative information
-- 12 ollama models to choose from (70B, 32B, and 8B parameter sizes)
+- choice of ollama models (large, medium and small)
 - jurisdiction-specific bylaw generation (canadian provinces and territories)
 - pdf export functionality
-- real-time job processing with status updates
-- works within vercel free tier (5-minute function timeout)
+- background job processing with status updates
+- runs locally, as a single docker container, or on vercel
 
-## setup
+## requirements
 
-### 1. install dependencies
+- an [ollama](https://ollama.com/) api you can reach (hosted, e.g. `roo.ai.hypha.coop`, or one running on your machine)
+- node.js 18+ and npm for local development, **or** docker
 
-```bash
-npm install
-```
+no database or external queue is needed: jobs are kept in memory by the server.
 
-### 2. set up upstash redis
+## configuration
 
-for async job processing:
-
-1. go to [upstash.com](https://upstash.com/) and create a free account
-2. create a new redis database (free tier: 10,000 commands/day)
-3. copy the REST URL and token
-
-### 3. configure environment variables
-
-copy the example file:
+copy the example file and edit it:
 
 ```bash
 cp .env.example .env
 ```
 
-required environment variables:
+| variable | required | description |
+| --- | --- | --- |
+| `APP_PASSWORD` | yes | password users enter to access the app |
+| `SESSION_SECRET` | yes (production) | secret used to sign session cookies. generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `OLLAMA_URL` | yes | ollama base url (`http://localhost:11434`) or full `/api/generate` url |
+| `OLLAMA_USERNAME` / `OLLAMA_PASSWORD` | no | http basic auth for the ollama api, if it needs it |
+| `OLLAMA_NUM_PREDICT` | no | max tokens generated per request (default `12000`) |
+| `OLLAMA_NUM_CTX` | no | context window size (default: the ollama server/model default) |
+| `OLLAMA_THINK` | no | let reasoning models think before answering (default `false`). thinking uses up the token budget and can cut the bylaws short |
+| `COOKIE_SECURE` | no | set to `true` when served over https (default `false`) |
+| `PORT` | no | server port (default `4000`) |
+| `FRONTEND_URL` / `REACT_APP_API_URL` | no | only needed if the ui and api are served from different origins |
 
-```env
-# authentication
-APP_PASSWORD=your-secure-password
-
-# upstash redis (for job queue)
-UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
-UPSTASH_REDIS_REST_TOKEN=your_upstash_token
-
-# ollama api
-OLLAMA_URL=https://roo.ai.hypha.coop/api/generate
-OLLAMA_USERNAME=your-username
-OLLAMA_PASSWORD=your-password
-
-# frontend (for cors)
-FRONTEND_URL=http://localhost:3000
-REACT_APP_API_URL=
-```
-
-## development
-
-### option a: traditional development (express + react)
+check that the server can reach ollama:
 
 ```bash
-# start both proxy server and react app
+npm install
+npm run test-ollama -- qwen3.5:9b
+```
+
+## running locally (development)
+
+```bash
+npm install
 npm run dev
 ```
 
-or run separately:
+this starts the express api on [http://localhost:4000](http://localhost:4000) and the react dev server on [http://localhost:3000](http://localhost:3000). the dev server forwards `/api` requests to the express server, so open http://localhost:3000.
+
+to run a production build locally from a single process:
 
 ```bash
-# terminal 1: proxy server
-npm run proxy
-
-# terminal 2: react app
-npm start
+npm run start:prod   # builds the ui, then serves ui + api on http://localhost:4000
 ```
 
-app available at [http://localhost:3000](http://localhost:3000)
-
-### option b: vercel local development
+## running with docker
 
 ```bash
-# install vercel cli
-npm i -g vercel
-
-# run locally
-vercel dev
+cp .env.example .env      # then edit it
+docker compose up --build -d
 ```
 
-simulates production vercel environment locally.
+open [http://localhost:4000](http://localhost:4000). set `HOST_PORT` to publish on a different port, e.g. `HOST_PORT=8080 docker compose up -d`.
 
-## deployment
+if ollama runs on the docker host, set `OLLAMA_URL=http://host.docker.internal:11434` (the compose file maps that hostname to the host). ollama has to listen on an interface the container can reach, e.g. `OLLAMA_HOST=0.0.0.0`.
 
-### vercel (recommended)
-
-1. push to github (make repo public for auto-deploy)
-2. connect repository in vercel dashboard
-3. set environment variables in vercel:
-   - `UPSTASH_REDIS_REST_URL`
-   - `UPSTASH_REDIS_REST_TOKEN`
-   - `APP_PASSWORD`
-   - `OLLAMA_URL`
-   - `OLLAMA_USERNAME`
-   - `OLLAMA_PASSWORD`
-   - `FRONTEND_URL` (your production url)
-   - `REACT_APP_API_URL` (empty string)
-
-4. deploy:
+without compose:
 
 ```bash
-git push origin main
+docker build -t bylaw-creator .
+docker run -d -p 4000:4000 --env-file .env --add-host host.docker.internal:host-gateway bylaw-creator
 ```
 
-or manually:
+the container runs as a non-root user, exposes port 4000, and has a healthcheck at `/api/health`. put it behind an https reverse proxy for public deployments, and set `COOKIE_SECURE=true`.
 
-```bash
-vercel --prod
-```
+## deploying to vercel
 
-### advantages of vercel
+1. connect the repository in the vercel dashboard
+2. set the environment variables: `APP_PASSWORD`, `SESSION_SECRET`, `OLLAMA_URL`, and optionally `OLLAMA_USERNAME` / `OLLAMA_PASSWORD`. set `COOKIE_SECURE=true`.
+3. push to `main` (or run `vercel --prod`)
 
-- ✅ automatic https
-- ✅ serverless scaling
-- ✅ built-in ci/cd
-- ✅ 5-minute function timeout (hobby plan)
-- ✅ free tier available
+on vercel, `/api/jobs/submit` waits for generation to finish and returns the result in its response, so no shared job store is needed. a generation has to finish within the function timeout (`maxDuration` in `vercel.json`, 300s).
 
 ## available models
 
@@ -150,44 +115,50 @@ vercel --prod
 
 ## architecture
 
+- `src/`: react frontend (create react app + tailwind)
+- `server/lib/`: shared backend logic (auth, ollama client, jobs), used by both of the following
+- `server/index.js`: express server for local development and docker. it serves `/api/*` and, when a build exists, the ui
+- `api/`: thin vercel serverless wrappers around `server/lib`
+
 ### job processing flow
 
-1. **submit job** (`/api/jobs/submit`): accepts form data, starts processing
-2. **poll status** (`/api/jobs/status`): frontend polls for progress
-3. **get results**: results delivered when complete
-
-### benefits
-
-- ✅ no timeout issues (processes within 5-minute limit)
-- ✅ real-time progress updates
-- ✅ fault tolerant (jobs persist in redis)
-- ✅ works on vercel free tier
+1. **submit job** (`POST /api/jobs/submit`): validates the payload and starts generation. express returns `202` with a `jobId`. vercel returns the finished result directly.
+2. **poll status** (`GET /api/jobs/status?jobId=xxx`): the frontend polls until the job is `completed` or `failed`
+3. jobs are kept in memory for 24 hours. they are lost if the server restarts.
 
 ## api endpoints
 
-### authentication
-- `POST /api/auth/login` - authenticate with APP_PASSWORD
-- `POST /api/auth/logout` - end session
-- `GET /api/auth/status` - check auth status
+- `GET /api/health`: liveness check (process is up; also reports uptime, version and job counts)
+- `GET /api/ready`: readiness check (config is valid and ollama is reachable with the configured credentials)
+- `POST /api/auth/login`: authenticate with `APP_PASSWORD`
+- `POST /api/auth/logout`: end the session
+- `GET /api/auth/status`: check auth status
+- `POST /api/jobs/submit`: submit a bylaw generation job
+- `GET /api/jobs/status?jobId=xxx`: check job status and get results (express only; on vercel, submit returns the result directly)
 
-### job processing
-- `POST /api/jobs/submit` - submit bylaw generation job
-- `GET /api/jobs/status?jobId=xxx` - check job status and get results
+## monitoring
+
+two unauthenticated endpoints, both sent with `Cache-Control: no-store`:
+
+- **`GET /api/health`** (liveness) always returns `200` while the process is running. it makes no external calls, so use it for container healthchecks and restarts. the docker image's `HEALTHCHECK` uses it.
+
+  ```json
+  {"status":"ok","version":"0.1.0","uptimeSeconds":3600,"jobs":{"queued":0,"processing":1,"completed":12,"failed":0}}
+  ```
+
+- **`GET /api/ready`** (readiness) returns `200` when everything is working and `503` otherwise. it checks that `APP_PASSWORD` is set and calls ollama's `/api/version` with the configured credentials (5s timeout). results are cached for 5 seconds. point uptime monitors and alerts here.
+
+  ```json
+  {"status":"error","version":"0.1.0","checks":{"config":{"ok":true},"ollama":{"ok":false,"latencyMs":5003,"error":"timed out"}}}
+  ```
+
+neither endpoint exposes configuration values or credentials.
 
 ## security
 
-- password-protected access
-- secure session cookies
-- cors restricted to frontend domain
-- encrypted credentials support (optional)
-
-## building for production
-
-```bash
-npm run build
-```
-
-builds optimized production bundle to `build/` folder.
+- password-protected access (constant-time comparison)
+- hmac-signed, httponly, samesite session cookie (no credentials stored in the cookie)
+- ollama credentials stay on the server
 
 ## license
 
