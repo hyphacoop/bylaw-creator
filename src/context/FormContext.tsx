@@ -291,10 +291,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
 
-      // The server either finished the job already (sync mode) or queued it: poll if queued
-      const result = submission.status === 'completed'
-        ? submission
-        : await jobService.pollUntilComplete(submission.jobId, onProgress);
+      const result = await jobService.pollUntilComplete(submission.jobId, onProgress);
 
       if (result.result) {
         // Remove think tags, code fences and any preamble before the title

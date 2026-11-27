@@ -1,9 +1,10 @@
 import { logEvent, LogLevel } from '../utils/logger';
 import { apiUrl } from './api';
 
-// Submit returns either a queued job (202, poll for the result) or, when the server
-// ran the job synchronously (e.g. on Vercel), the finished job itself.
-export type JobSubmissionResponse = JobStatusResponse & { message?: string };
+// Submit queues the job (202); poll the status endpoint for the result.
+export interface JobSubmissionResponse {
+  jobId: string;
+}
 
 export interface JobStatusResponse {
   jobId: string;
@@ -101,6 +102,8 @@ export class JobService {
     initialPollInterval: number = 5000, // Start with 5 second
     maxAttempts: number = 100 // Reduce max attempts since we'll use longer intervals
   ): Promise<JobStatusResponse> {
+    // The job was just submitted and can't be done yet, so wait before the first check
+    await new Promise(resolve => setTimeout(resolve, initialPollInterval));
     return this._pollRecursive(jobId, onProgress, initialPollInterval, 0, maxAttempts);
   }
 

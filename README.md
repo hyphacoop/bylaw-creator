@@ -9,7 +9,7 @@ a tool that guides users through creating bylaws for co-operatives using ai-powe
 - jurisdiction-specific bylaw generation (canadian provinces and territories)
 - pdf export functionality
 - background job processing with status updates
-- runs locally, as a single docker container, or on vercel
+- runs locally or as a single docker container
 
 ## requirements
 
@@ -81,14 +81,6 @@ docker run -d -p 4000:4000 --env-file .env --add-host host.docker.internal:host-
 
 the container runs as a non-root user, exposes port 4000, and has a healthcheck at `/api/health`. put it behind an https reverse proxy for public deployments, and set `COOKIE_SECURE=true`.
 
-## deploying to vercel
-
-1. connect the repository in the vercel dashboard
-2. set the environment variables: `APP_PASSWORD`, `SESSION_SECRET`, `OLLAMA_URL`, and optionally `OLLAMA_USERNAME` / `OLLAMA_PASSWORD`. set `COOKIE_SECURE=true`.
-3. push to `main` (or run `vercel --prod`)
-
-on vercel, `/api/jobs/submit` waits for generation to finish and returns the result in its response, so no shared job store is needed. a generation has to finish within the function timeout (`maxDuration` in `vercel.json`, 300s).
-
 ## available models
 
 ### large models (70B+) - best quality
@@ -116,13 +108,12 @@ on vercel, `/api/jobs/submit` waits for generation to finish and returns the res
 ## architecture
 
 - `src/`: react frontend (create react app + tailwind)
-- `server/lib/`: shared backend logic (auth, ollama client, jobs), used by both of the following
+- `server/lib/`: backend logic (auth, ollama client, jobs)
 - `server/index.js`: express server for local development and docker. it serves `/api/*` and, when a build exists, the ui
-- `api/`: thin vercel serverless wrappers around `server/lib`
 
 ### job processing flow
 
-1. **submit job** (`POST /api/jobs/submit`): validates the payload and starts generation. express returns `202` with a `jobId`. vercel returns the finished result directly.
+1. **submit job** (`POST /api/jobs/submit`): validates the payload and starts generation. returns `202` with a `jobId`.
 2. **poll status** (`GET /api/jobs/status?jobId=xxx`): the frontend polls until the job is `completed` or `failed`
 3. jobs are kept in memory for 24 hours. they are lost if the server restarts.
 
@@ -134,7 +125,7 @@ on vercel, `/api/jobs/submit` waits for generation to finish and returns the res
 - `POST /api/auth/logout`: end the session
 - `GET /api/auth/status`: check auth status
 - `POST /api/jobs/submit`: submit a bylaw generation job
-- `GET /api/jobs/status?jobId=xxx`: check job status and get results (express only; on vercel, submit returns the result directly)
+- `GET /api/jobs/status?jobId=xxx`: check job status and get results
 
 ## monitoring
 

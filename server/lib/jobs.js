@@ -28,26 +28,15 @@ async function runJob(jobId, request) {
     console.error(`❌ Job ${jobId}: ${error.message}`)
     store.update(jobId, { status: 'failed', error: error.message, failedAt: Date.now() })
   }
-  return store.get(jobId)
 }
 
-// Submit a job. By default it returns immediately (202) and the client polls.
-// With sync: true (used on Vercel, where the in-memory store isn't shared between
-// function instances) it waits and returns the finished job inline.
-async function submit(body, { sync = false } = {}) {
+// Submit a job. Returns immediately (202) with a jobId; the client polls for status.
+function submit(body) {
   const request = extractRequest(body)
   if (request.error) return { status: 400, body: { error: request.error } }
 
   const jobId = crypto.randomUUID()
   store.create(jobId)
-
-  if (sync) {
-    const job = await runJob(jobId, request)
-    if (job.status === 'failed') {
-      return { status: 502, body: { jobId, status: 'failed', error: job.error } }
-    }
-    return { status: 200, body: formatStatus(job) }
-  }
 
   runJob(jobId, request).catch((err) => console.error('Unexpected job error:', err))
   return {
