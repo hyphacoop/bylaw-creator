@@ -1,0 +1,24 @@
+name: Build bylaw-creator image
+
+on:
+  workflow_dispatch: {}   # adds a "Run workflow" button in the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write     # allows pushing to ghcr.io
+    steps:
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          push: true
+          tags: |
+            ghcr.io/hyphacoop/bylaw-creator:${{ github.sha }}
+            ghcr.io/hyphacoop/bylaw-creator:latest

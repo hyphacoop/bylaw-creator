@@ -39,6 +39,8 @@ interface FormContextType {
   goToStep: (step: number) => void;
   isStepValid: (step: number) => boolean;
   generatedBylaws: string;
+  // True when the model hit its output limit and the bylaws are cut off
+  bylawsTruncated: boolean;
   isGenerating: boolean;
   generateBylaws: () => Promise<void>;
   generationProgress: string;
@@ -98,6 +100,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [generatedBylaws, setGeneratedBylaws] = useState('');
+  const [bylawsTruncated, setBylawsTruncated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState('');
 
@@ -128,6 +131,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetFormData = () => {
     setFormData(defaultFormData);
     setGeneratedBylaws('');
+    setBylawsTruncated(false);
     setCurrentStep(1);
     setIsGenerating(false);
     setGenerationProgress('');
@@ -158,7 +162,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Generate bylaws using Claude API
+  // Generate bylaws with the selected Ollama model
   const generateBylaws = async () => {
     setIsGenerating(true);
     setGenerationProgress('Preparing your request...');
@@ -188,16 +192,24 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
           - Méthode décisionnelle : ${formData.decisionMakingMethod}${formData.decisionMakingMethod === 'supermajority' ? ` (seuil: ${formData.supermajorityThreshold})` : ''}
           - Seuil de résolution spéciale : ${formData.specialResolutionThreshold}
 
-          Structure attendue :
-          1. Définitions et interprétation  
-          2. Objet et siège social  
-          3. Conditions d'adhésion et procédures  
-          4. Assemblées et droit de vote  
-          5. Conseil d'administration  
-          6. Officiers  
-          7. Dispositions financières  
-          8. Amendements aux statuts  
+          Structure attendue (un article par élément) :
+          1. Définitions et interprétation
+          2. Objet et siège social
+          3. Conditions d'adhésion et procédures
+          4. Assemblées et droit de vote
+          5. Conseil d'administration
+          6. Officiers
+          7. Dispositions financières
+          8. Amendements aux statuts
           9. Dissolution
+
+          Mise en forme (Markdown) :
+          - Commence par une seule ligne de titre : "# Statuts de ${formData.coopName}"
+          - Chaque article est un titre de niveau 2 : "## Article 1 – Définitions et interprétation"
+          - Chaque section est un titre de niveau 3 : "### Section 1.1 – Titre", suivi de son texte dans un paragraphe distinct
+          - Utilise des listes à puces ("- ") pour les énumérations, par exemple les définitions
+          - Laisse une ligne vide entre chaque titre, paragraphe et liste
+          - N'entoure pas le texte d'un bloc de code
 
           Génère uniquement le texte final des statuts, sans commentaires ni explications.
         `
@@ -219,18 +231,26 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
           - Decision Making Method: ${formData.decisionMakingMethod}${formData.decisionMakingMethod === 'supermajority' ? ` (threshold: ${formData.supermajorityThreshold})` : ''}
           - Special Resolution Threshold: ${formData.specialResolutionThreshold}
 
-          Only output the final bylaws. Do not include commentary, search steps, or citations.
-
-          Format:
-          1. Definitions and Interpretation  
-          2. Business of the Co-operative  
-          3. Membership Requirements and Procedures  
-          4. Member Meetings and Voting  
-          5. Board of Directors Structure and Procedures  
-          6. Officers  
-          7. Financial Matters  
-          8. Amendment Procedures  
+          Structure (one article per item):
+          1. Definitions and Interpretation
+          2. Business of the Co-operative
+          3. Membership Requirements and Procedures
+          4. Member Meetings and Voting
+          5. Board of Directors Structure and Procedures
+          6. Officers
+          7. Financial Matters
+          8. Amendment Procedures
           9. Dissolution
+
+          Formatting (Markdown):
+          - Start with a single title line: "# Bylaws of ${formData.coopName}"
+          - Make each article a level-2 heading: "## Article 1 – Definitions and Interpretation"
+          - Make each section a level-3 heading: "### Section 1.1 – Title", followed by its text as a separate paragraph
+          - Use bullet lists ("- ") for enumerations such as definitions
+          - Leave a blank line between every heading, paragraph and list
+          - Do not wrap the output in a code block
+
+          Only output the final bylaws. Do not include commentary, search steps, or citations.
           `.trim();
 
       // Prepare the payload for Ollama
@@ -241,8 +261,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: "user",
             content: prompt
           }
-        ],
-        max_tokens: 5000
+        ]
       };
 
       setGenerationProgress('Submitting your request...');
@@ -255,39 +274,33 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setGenerationProgress('Your request has been submitted. Processing bylaws...');
 
-      // Poll for completion with progress updates
-      const result = await jobService.pollUntilComplete(
-        submission.jobId,
-        (status: JobStatusResponse) => {
-          switch (status.status) {
-            case 'queued':
-              setGenerationProgress('Your request is in the queue...');
-              break;
-            case 'processing':
-              setGenerationProgress('Generating your bylaws...');
-              break;
-            case 'completed':
-              setGenerationProgress('Bylaws generated successfully!');
-              break;
-            case 'failed':
-              setGenerationProgress('Generation failed. Please try again.');
-              break;
-          }
+      const onProgress = (status: JobStatusResponse) => {
+        switch (status.status) {
+          case 'queued':
+            setGenerationProgress('Your request is in the queue...');
+            break;
+          case 'processing':
+            setGenerationProgress('Generating your bylaws...');
+            break;
+          case 'completed':
+            setGenerationProgress('Bylaws generated successfully!');
+            break;
+          case 'failed':
+            setGenerationProgress('Generation failed. Please try again.');
+            break;
         }
-      );
+      };
+
+      // The server either finished the job already (sync mode) or queued it: poll if queued
+      const result = submission.status === 'completed'
+        ? submission
+        : await jobService.pollUntilComplete(submission.jobId, onProgress);
 
       if (result.result) {
-        // Clean up the result like the original code did
-        let cleaned = result.result.replace(
-          /^[\s\S]*?(BYLAWS OF[^\n]*\n)[\s\S]*?(?=\n?\s*1[.\s])/im,
-          '$1'
-        );
-        
-        // Apply additional cleaning to remove think tags and other artifacts
-        cleaned = cleanGeneratedText(cleaned || result.result);
-        
-        setGeneratedBylaws(cleaned);
-        setGenerationProgress('Complete!');
+        // Remove think tags, code fences and any preamble before the title
+        setGeneratedBylaws(cleanGeneratedText(result.result));
+        setBylawsTruncated(!!result.truncated);
+        setGenerationProgress(result.truncated ? 'Complete, but the output was cut off.' : 'Complete!');
         goToStep(6); // Move to results step
       }
 
@@ -320,6 +333,7 @@ export const FormProvider: React.FC<{ children: React.ReactNode }> = ({ children
       goToStep,
       isStepValid,
       generatedBylaws,
+      bylawsTruncated,
       isGenerating,
       generateBylaws,
       generationProgress,

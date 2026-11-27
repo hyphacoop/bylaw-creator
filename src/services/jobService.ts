@@ -1,10 +1,9 @@
 import { logEvent, LogLevel } from '../utils/logger';
+import { apiUrl } from './api';
 
-export interface JobSubmissionResponse {
-  jobId: string;
-  status: string;
-  message: string;
-}
+// Submit returns either a queued job (202, poll for the result) or, when the server
+// ran the job synchronously (e.g. on Vercel), the finished job itself.
+export type JobSubmissionResponse = JobStatusResponse & { message?: string };
 
 export interface JobStatusResponse {
   jobId: string;
@@ -14,6 +13,8 @@ export interface JobStatusResponse {
   completedAt?: number;
   failedAt?: number;
   result?: string;
+  // True when the model hit its output limit and the result is cut off
+  truncated?: boolean;
   error?: string;
   processingTimeMs?: number;
   suggestedPollInterval?: number;
@@ -25,19 +26,8 @@ export interface JobSubmissionData {
 }
 
 export class JobService {
-  private baseUrl: string;
   private statusCache: Map<string, { status: JobStatusResponse; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 500; // Cache for 500ms to avoid duplicate calls
-
-  constructor() {
-    // In local development, use the proxy server
-    // In production, use the configured API URL or current origin
-    if (window.location.hostname === 'localhost') {
-      this.baseUrl = 'http://localhost:4000'; // Use proxy server
-    } else {
-      this.baseUrl = process.env.REACT_APP_API_URL || '';
-    }
-  }
 
   async submitJob(jobData: JobSubmissionData): Promise<JobSubmissionResponse> {
     logEvent('Submitting job for bylaw generation', LogLevel.INFO, {
@@ -46,7 +36,7 @@ export class JobService {
     });
     
     try {
-      const response = await fetch(`${this.baseUrl}/api/jobs/submit`, {
+      const response = await fetch(apiUrl('/api/jobs/submit'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,13 +46,13 @@ export class JobService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to submit job');
       }
 
-      const result = await response.json();
+      const result: JobSubmissionResponse = await response.json();
       logEvent('Job submitted successfully', LogLevel.INFO, { jobId: result.jobId });
-      
+
       return result;
     } catch (error: any) {
       logEvent('Job submission failed', LogLevel.ERROR, { error: error.message });
@@ -78,7 +68,7 @@ export class JobService {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/api/jobs/status?jobId=${jobId}`, {
+      const response = await fetch(apiUrl(`/api/jobs/status?jobId=${encodeURIComponent(jobId)}`), {
         method: 'GET',
         credentials: 'include',
       });
