@@ -1,4 +1,4 @@
-// Stateless, HMAC-signed session cookie shared by the Express server and Vercel functions.
+// Stateless, HMAC-signed session cookie used by the Express server.
 const crypto = require('crypto')
 const { parse, serialize } = require('cookie')
 const config = require('./config')
@@ -59,7 +59,7 @@ function isAuthenticated(req) {
   return verifyToken(cookies[COOKIE_NAME])
 }
 
-// Returns { status, body, cookie? } so callers can adapt to Express or Vercel.
+// Returns a { status, body, cookie? } result (see server/lib/http.js).
 function login(password) {
   if (!config.appPassword) {
     return { status: 500, body: { error: 'No password configured' } }

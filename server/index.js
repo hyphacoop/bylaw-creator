@@ -45,13 +45,7 @@ app.post('/api/auth/login', (req, res) => send(res, auth.login(req.body && req.b
 app.post('/api/auth/logout', (req, res) => send(res, auth.logout()))
 app.get('/api/auth/status', (req, res) => res.json({ authenticated: auth.isAuthenticated(req) }))
 
-app.post('/api/jobs/submit', requireAuth, async (req, res, next) => {
-  try {
-    send(res, await jobs.submit(req.body))
-  } catch (err) {
-    next(err)
-  }
-})
+app.post('/api/jobs/submit', requireAuth, (req, res) => send(res, jobs.submit(req.body)))
 app.get('/api/jobs/status', requireAuth, (req, res) => send(res, jobs.status(req.query.jobId)))
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }))

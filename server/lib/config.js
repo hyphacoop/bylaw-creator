@@ -1,5 +1,5 @@
 // Central place for reading environment configuration.
-// Loads .env when present; in Docker/Vercel env vars can also be injected directly.
+// Loads .env when present; in Docker env vars can also be injected directly.
 require('dotenv').config()
 
 const DEFAULT_OLLAMA_URL = 'https://roo.ai.hypha.coop'

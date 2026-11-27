@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "api/jobs/submit.js": {
-      "maxDuration": 300
-    }
-  }
-}

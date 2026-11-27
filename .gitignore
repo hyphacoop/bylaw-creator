@@ -88,5 +88,4 @@ jspm_packages/
 .serverless
 
 # FuseBox cache
-.fusebox/ 
-.vercel
+.fusebox/
